@@ -1,6 +1,6 @@
-# Kernel Driver for IMX283
+# Kernel Driver for IMX585
 
-This guide provides detailed instructions on how to install the IMX283 kernel driver on a Linux system, specifically Raspbian.
+This guide provides detailed instructions on how to install the IMX585 kernel driver on a Linux system, specifically Raspbian.
 
 ## Prerequisites
 
@@ -29,8 +29,8 @@ sudo apt install linux-headers dkms git
 Clone the repository to your local machine and navigate to the cloned directory:
 
 ```bash
-git clone https://github.com/will127534/imx283-v4l2-driver.git
-cd imx283-v4l2-driver/
+git clone https://github.com/will127534/imx585-v4l2-driver.git
+cd imx585-v4l2-driver/
 ```
 
 ### Compiling and Installing the Kernel Driver
@@ -49,11 +49,11 @@ Edit the boot configuration file using the following command:
 sudo nano /boot/config.txt
 ```
 
-In the opened editor, locate the line containing `camera_auto_detect` and change its value to `0`. Then, add the line `dtoverlay=imx283`. So, it will look like this:
+In the opened editor, locate the line containing `camera_auto_detect` and change its value to `0`. Then, add the line `dtoverlay=imx585`. So, it will look like this:
 
 ```
 camera_auto_detect=0
-dtoverlay=imx283
+dtoverlay=imx585
 ```
 
 After making these changes, save the file and exit the editor.
