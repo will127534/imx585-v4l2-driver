@@ -99,5 +99,5 @@ dtoverlay=imx585,mono
 Last note is that all the options can be used at the same time, the dtoverlay will looks like this:
 ```
 camera_auto_detect=0
-dtoverlay=imx585,always-on,mono,always-on
+dtoverlay=imx585,always-on,mono,cam0
 ```
