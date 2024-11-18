@@ -108,5 +108,7 @@
 		       <&cam_node>, "VANA-supply:0=",<&cam0_reg>;
 		always-on = <0>, "+99";
 		mono = <&cam_node>,"mono-mode:0=1";
+        sync-sink = <&cam_node>,"sync-mode:0=2";
+        sync-source = <&cam_node>,"sync-mode:0=1";
 	};
 };

@@ -25,10 +25,6 @@
 #include <media/v4l2-mediabus.h>
 
 
-static bool monochrome_mode;
-module_param(monochrome_mode, bool, 0644);
-MODULE_PARM_DESC(monochrome_mode, "Set for monochrome sensor: 1=mono, 0=color");
-
 
 // Support for rpi kernel pre git commit 314a685
 #ifndef MEDIA_BUS_FMT_SENSOR_DATA
@@ -95,6 +91,11 @@ MODULE_PARM_DESC(monochrome_mode, "Set for monochrome sensor: 1=mono, 0=color");
 #define IMX585_ANA_GAIN_HCG_LEVEL		51 // = 15.3db / 0.3db
 #define IMX585_ANA_GAIN_HCG_THRESHOLD	(IMX585_ANA_GAIN_HCG_LEVEL+29)
 #define IMX585_ANA_GAIN_HCG_MIN			34
+
+/* Trigger/Sync */
+#define IMX585_REG_XMSTA 0x3002
+#define IMX585_REG_XXS_DRV 0x30A6
+#define IMX585_REG_EXTMODE 0x30CE
 
 /* Flip */
 #define IMX585_FLIP_WINMODEH    		0x3020
@@ -305,8 +306,7 @@ static const struct imx585_reg mode_common_regs[] = {
     {0x492C, 0xB2},// -
     {0x4930, 0x03},// -
     {0x4932, 0x03},// -
-    {0x4936, 0x5B},// -
-    {0x4938, 0x82},// -
+    {0x4936, 0x5B},// -    {0x4938, 0x82},// -
     {0x493E, 0x23},// -
     {0x4BA8, 0x1C},// -
     {0x4BA9, 0x03},// -
@@ -437,7 +437,7 @@ static const struct imx585_reg mode_common_regs[] = {
     {0x5222, 0x91},// -
     {0x5224, 0x87},// -
     {0x5226, 0x82},// -
-    {0x3002, 0x00}, // Master mode start
+    //{0x3002, 0x00}, // Master mode start
 };
 
 /* All pixel 4K60. 12-bit (Normal) */
@@ -793,6 +793,8 @@ struct imx585 {
 
     /* Mono mode */
     bool mono;
+    /* Sync mode 0 = default, 1= Master, 2 = Slave*/
+    int sync;
 
 	uint16_t HMAX;
 	uint32_t VMAX;
@@ -1475,11 +1477,17 @@ static int imx585_start_streaming(struct imx585 *imx585)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
 	const struct IMX585_reg_list *reg_list;
-	int ret;
+	int ret, tm;
 	
 	dev_info(&client->dev,"imx585_start_streaming\n");
 
 	if (!imx585->common_regs_written) {
+
+                if(imx585->sync == 1){
+                    dev_info(&client->dev,"imx585 master mode, enable output\n");
+                    imx585_write_reg_1byte(imx585, IMX585_REG_XXS_DRV, 0);
+                }
+
 		ret = imx585_write_regs(imx585, mode_common_regs, ARRAY_SIZE(mode_common_regs));
 		if (ret) {
 			dev_err(&client->dev, "%s failed to set common settings\n", __func__);
@@ -1487,8 +1495,16 @@ static int imx585_start_streaming(struct imx585 *imx585)
 		}
 		imx585_write_reg_2byte(imx585, IMX585_REG_BLKLEVEL, IMX585_BLKLEVEL_DEFAULT);
 		imx585->common_regs_written = true;
+
+                if (imx585->sync <= 1){
+                    dev_info(&client->dev,"imx585 master mode enabled\n");
+                    imx585_write_reg_1byte(imx585, IMX585_REG_XMSTA, 0x00);
+                }
+                
+
 		dev_info(&client->dev,"common_regs_written\n");
 	}
+
 
 	/* Apply default values of current mode */
 	reg_list = &imx585->mode->reg_list;
@@ -1526,7 +1542,7 @@ static int imx585_start_streaming(struct imx585 *imx585)
 	if(ret) {
 		dev_err(&client->dev, "%s failed to apply user values\n", __func__);
 		return ret;
-	}
+        }
 
 	/* Set stream on register */
 	ret = imx585_write_reg_1byte(imx585, IMX585_REG_MODE_SELECT, IMX585_MODE_STREAMING);
@@ -1901,12 +1917,21 @@ static int imx585_probe(struct i2c_client *client)
 	imx585->compatible_data =
 		(const struct imx585_compatible_data *)match->data;
 
-    /* From imx477.c */
-    /* Default the mono mode from OF to -1, which means invalid */
-    ret = of_property_read_u32(dev->of_node, "mono-mode", &tm_of);
-    imx585->mono = (ret == 0);
-    dev_info(dev, "IMX585 mono option: %d\n", imx585->mono);
+        /* From imx477.c */
+        /* Default the mono mode from OF to -1, which means invalid */
+        ret = of_property_read_u32(dev->of_node, "mono-mode", &tm_of);
+        imx585->mono = (ret == 0);
+        dev_info(dev, "IMX585 mono option: %d\n", imx585->mono);
 
+
+        ret = of_property_read_u32(dev->of_node, "sync-mode", &tm_of);
+        if(ret == 0){
+            imx585->sync = tm_of;
+        }
+        else{
+            imx585->sync = 0;
+        }
+        dev_info(dev, "IMX585 sync option: %d\n", imx585->sync);
 
 	/* Get system clock (xclk) */
 	imx585->xclk = devm_clk_get(dev, NULL);
