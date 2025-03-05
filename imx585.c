@@ -16,6 +16,7 @@
 #include <linux/i2c.h>
 #include <linux/module.h>
 #include <linux/of_device.h>
+#include <linux/of_graph.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
 #include <media/v4l2-ctrls.h>
@@ -23,12 +24,6 @@
 #include <media/v4l2-event.h>
 #include <media/v4l2-fwnode.h>
 #include <media/v4l2-mediabus.h>
-
-
-static bool monochrome_mode;
-module_param(monochrome_mode, bool, 0644);
-MODULE_PARM_DESC(monochrome_mode, "Set for monochrome sensor: 1=mono, 0=color");
-
 
 // Support for rpi kernel pre git commit 314a685
 #ifndef MEDIA_BUS_FMT_SENSOR_DATA
@@ -126,6 +121,58 @@ enum v4l2_xfer_func_sony {
 #define IMX585_PIXEL_ARRAY_WIDTH	3840U
 #define IMX585_PIXEL_ARRAY_HEIGHT	2160U
 
+/* Link frequency setup */
+enum {
+    IMX585_LINK_FREQ_297MHZ, // 594Mbps/lane
+    IMX585_LINK_FREQ_360MHZ, // 720Mbps/lane
+    IMX585_LINK_FREQ_445MHZ, // 891Mbps/lane
+    IMX585_LINK_FREQ_594MHZ, // 1188Mbps/lane
+    IMX585_LINK_FREQ_720MHZ, // 1440Mbps/lane
+    IMX585_LINK_FREQ_891MHZ, // 1782Mbps/lane
+    IMX585_LINK_FREQ_1039MHZ, // 2079Mbps/lane
+};
+
+static const s64 link_freqs_reg_value[] = {
+    [IMX585_LINK_FREQ_297MHZ]  = 0x07,
+    [IMX585_LINK_FREQ_360MHZ]  = 0x06,
+    [IMX585_LINK_FREQ_445MHZ]  = 0x05,
+    [IMX585_LINK_FREQ_594MHZ]  = 0x04,
+    [IMX585_LINK_FREQ_720MHZ]  = 0x03,
+    [IMX585_LINK_FREQ_891MHZ]  = 0x02,
+    [IMX585_LINK_FREQ_1039MHZ] = 0x01,
+};
+
+static const s64 link_freqs[] = {
+    [IMX585_LINK_FREQ_297MHZ]  = 297000000,
+    [IMX585_LINK_FREQ_360MHZ]  = 360000000,
+    [IMX585_LINK_FREQ_445MHZ]  = 445500000,
+    [IMX585_LINK_FREQ_594MHZ]  = 594000000,
+    [IMX585_LINK_FREQ_720MHZ]  = 720000000,
+    [IMX585_LINK_FREQ_891MHZ]  = 891000000,
+    [IMX585_LINK_FREQ_1039MHZ] = 1039500000,
+};
+
+//4K min HMAX for 4-lane, times 2 for 2-lane
+static const s64 HMAX_table_4lane_4K[] = {
+    [IMX585_LINK_FREQ_297MHZ] = 1584,
+    [IMX585_LINK_FREQ_360MHZ] = 1320,
+    [IMX585_LINK_FREQ_445MHZ] = 1100,
+    [IMX585_LINK_FREQ_594MHZ] =  792,
+    [IMX585_LINK_FREQ_720MHZ] =  660,
+    [IMX585_LINK_FREQ_891MHZ] =  550,
+    [IMX585_LINK_FREQ_1039MHZ] = 440,
+};
+
+static const s64 HMAX_table_4lane_1080P[] = {
+    [IMX585_LINK_FREQ_297MHZ] = 1584,
+    [IMX585_LINK_FREQ_360MHZ] = 1320,
+    [IMX585_LINK_FREQ_445MHZ] = 1100,
+    [IMX585_LINK_FREQ_594MHZ] =  792,
+    [IMX585_LINK_FREQ_720MHZ] =  660,
+    [IMX585_LINK_FREQ_891MHZ] =  550,
+    [IMX585_LINK_FREQ_1039MHZ] = 440,
+};
+
 struct imx585_reg {
 	u16 address;
 	u8 val;
@@ -173,7 +220,7 @@ struct imx585_mode {
 };
 
 /* Common Modes */
-static const struct imx585_reg mode_common_regs[] = {
+struct imx585_reg mode_common_regs[] = {
     {0x3002, 0x01},
     {0x301A, 0x00}, //WDMODE Normal mode
     //{0x301A, 0x10}, //WDMODE Clear HDR
@@ -583,29 +630,7 @@ static const struct imx585_reg mode_1080_16bit_regs[] = {
 };
 
 /* Mode configs */
-static const struct imx585_mode supported_modes_12bit[] = {
-	{
-		/* 4K60 All pixel */
-		.width = 3856,
-		.height = 2180,
-		.hdr = false,
-		.linear = true,
-		.min_HMAX = 550,
-		.min_VMAX = 2250,
-		.default_HMAX = 550,
-		.default_VMAX = 2250,
-		.min_SHR = 20,
-		.crop = {
-			.left = IMX585_PIXEL_ARRAY_LEFT,
-			.top = IMX585_PIXEL_ARRAY_TOP,
-			.width = IMX585_PIXEL_ARRAY_WIDTH,
-			.height = IMX585_PIXEL_ARRAY_HEIGHT,
-		},
-		.reg_list = {
-			.num_of_regs = ARRAY_SIZE(mode_4k_regs),
-			.regs = mode_4k_regs,
-		},
-	},
+struct imx585_mode supported_modes_12bit[] = {
 	{
 		/* 1080p90 2x2 binning */
 		.width = 1928,
@@ -628,9 +653,53 @@ static const struct imx585_mode supported_modes_12bit[] = {
 			.regs = mode_1080_regs,
 		},
 	},
+    {
+        /* 4K60 All pixel */
+        .width = 3856,
+        .height = 2180,
+        .hdr = false,
+        .linear = true,
+        .min_HMAX = 550,
+        .min_VMAX = 2250,
+        .default_HMAX = 550,
+        .default_VMAX = 2250,
+        .min_SHR = 20,
+        .crop = {
+            .left = IMX585_PIXEL_ARRAY_LEFT,
+            .top = IMX585_PIXEL_ARRAY_TOP,
+            .width = IMX585_PIXEL_ARRAY_WIDTH,
+            .height = IMX585_PIXEL_ARRAY_HEIGHT,
+        },
+        .reg_list = {
+            .num_of_regs = ARRAY_SIZE(mode_4k_regs),
+            .regs = mode_4k_regs,
+        },
+    },
 };
 
-static const struct imx585_mode supported_modes_nonlinear_12bit[] = {
+struct imx585_mode supported_modes_nonlinear_12bit[] = {
+    {
+        /* 1080P30 All pixel */
+        .width = 1928,
+        .height = 1090,
+        .hdr = true,
+        .linear = false,
+        .min_HMAX = 366, // Clear HDR original
+        .min_VMAX = 2250, // Clear HDR original
+        .default_HMAX = 366,
+        .default_VMAX = 2250,
+        .min_SHR = 20,
+        .crop = {
+            .left = IMX585_PIXEL_ARRAY_LEFT,
+            .top = IMX585_PIXEL_ARRAY_TOP,
+            .width = IMX585_PIXEL_ARRAY_WIDTH,
+            .height = IMX585_PIXEL_ARRAY_HEIGHT,
+        },
+        .reg_list = {
+            .num_of_regs = ARRAY_SIZE(mode_4k_nonlinear_regs),
+            .regs = mode_4k_nonlinear_regs,
+        },
+    },
 	{
 		/* 4K30 All pixel */
 		.width = 3856,
@@ -659,7 +728,7 @@ static const struct imx585_mode supported_modes_nonlinear_12bit[] = {
 	},
 };
 
-static const struct imx585_mode supported_modes_16bit[] = {
+struct imx585_mode supported_modes_16bit[] = {
 	{
 		/* 1080p30 2x2 binning */
 		.width = 1928,
@@ -782,6 +851,7 @@ struct imx585 {
 	struct v4l2_ctrl_handler ctrl_handler;
 	/* V4L2 Controls */
 	struct v4l2_ctrl *pixel_rate;
+    struct v4l2_ctrl *link_freq;
 	struct v4l2_ctrl *exposure;
 	struct v4l2_ctrl *vflip;
 	struct v4l2_ctrl *hflip;
@@ -793,6 +863,9 @@ struct imx585 {
 
     /* Mono mode */
     bool mono;
+
+    unsigned int lane_count;
+    unsigned int link_freq_idx;
 
 	uint16_t HMAX;
 	uint32_t VMAX;
@@ -821,9 +894,6 @@ static inline void get_mode_table(struct imx585 *imx585, unsigned int code, enum
 				  const struct imx585_mode **mode_list,
 				  unsigned int *num_modes)
 {
-
-    struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
-    
 
     if(imx585->mono){
         switch (code) {
@@ -1120,7 +1190,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		calculate_min_max_v4l2_cid_exposure(imx585 -> HMAX, imx585 -> VMAX, (u64)mode->min_SHR, 0, 209, &min_exposure, &max_exposure);
 		current_exposure = clamp_t(uint32_t, current_exposure, min_exposure, max_exposure);
 
-		dev_info(&client->dev,"exposure_max:%lld, exposure_min:%lld, current_exposure:%lld\n",max_exposure, min_exposure, current_exposure);
+		//dev_info(&client->dev,"exposure_max:%lld, exposure_min:%lld, current_exposure:%lld\n",max_exposure, min_exposure, current_exposure);
 		dev_info(&client->dev,"\tVMAX:%d, HMAX:%d\n",imx585->VMAX, imx585->HMAX);
 		__v4l2_ctrl_modify_range(imx585->exposure, min_exposure,max_exposure, 1,current_exposure);
 	}
@@ -1321,9 +1391,6 @@ static int imx585_get_pad_format(struct v4l2_subdev *sd,
 				 struct v4l2_subdev_format *fmt)
 {
 	struct imx585 *imx585 = to_imx585(sd);
-	struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
-
-	dev_info(&client->dev,"xfer_func: %d\n", (int)fmt->format.xfer_func);
 
 	if (fmt->pad >= NUM_PADS)
 		return -EINVAL;
@@ -1803,6 +1870,16 @@ static int imx585_init_controls(struct imx585 *imx585)
 					       0xffff,
 					       0xffff, 1,
 					       0xffff);
+
+    /* LINK_FREQ is also read only */
+    imx585->link_freq =
+        v4l2_ctrl_new_int_menu(ctrl_hdlr, &imx585_ctrl_ops,
+                       V4L2_CID_LINK_FREQ, 0, 0,
+                       &link_freqs[imx585->link_freq_idx]);
+    if (imx585->link_freq){
+        imx585->link_freq->flags |= V4L2_CTRL_FLAG_READ_ONLY;
+    }
+
 	imx585->vblank = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops,
 					   V4L2_CID_VBLANK, 0, 0xfffff, 1, 0);
 	imx585->hblank = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops,
@@ -1881,13 +1958,105 @@ static const struct of_device_id imx585_dt_ids[] = {
 	{ /* sentinel */ }
 };
 
+
+//from imx477.c
+static int imx585_check_hwcfg(struct device *dev, struct imx585 *imx585)
+{
+    struct fwnode_handle *endpoint;
+    struct v4l2_fwnode_endpoint ep_cfg = {
+        .bus_type = V4L2_MBUS_CSI2_DPHY
+    };
+    int ret = -EINVAL;
+    int i;
+
+    endpoint = fwnode_graph_get_next_endpoint(dev_fwnode(dev), NULL);
+    if (!endpoint) {
+        dev_err(dev, "endpoint node not found\n");
+        return -EINVAL;
+    }
+
+    if (v4l2_fwnode_endpoint_alloc_parse(endpoint, &ep_cfg)) {
+        dev_err(dev, "could not parse endpoint\n");
+        goto error_out;
+    }
+
+    
+    /* Check the number of MIPI CSI2 data lanes */
+    if (ep_cfg.bus.mipi_csi2.num_data_lanes != 2 && ep_cfg.bus.mipi_csi2.num_data_lanes != 4) {
+        dev_err(dev, "only 2 or 4 data lanes are currently supported\n");
+        goto error_out;
+    }
+    imx585->lane_count = ep_cfg.bus.mipi_csi2.num_data_lanes;
+    dev_info(dev, "Data lanes: %d\n",imx585->lane_count);
+
+    /* Check the link frequency set in device tree */
+    if (!ep_cfg.nr_of_link_frequencies) {
+        dev_err(dev, "link-frequency property not found in DT\n");
+        goto error_out;
+    }
+
+    for (i = 0; i < ARRAY_SIZE(link_freqs); i++) {
+        if (link_freqs[i] == ep_cfg.link_frequencies[0]) {
+            imx585->link_freq_idx = i;
+            break;
+        }
+    }
+
+    if (i == ARRAY_SIZE(link_freqs)) {
+        dev_err(dev, "Link frequency not supported: %lld\n",
+            ep_cfg.link_frequencies[0]);
+            ret = -EINVAL;
+            goto error_out;
+    }
+
+    dev_info(dev, "Link Speed: %lld Mhz\n",ep_cfg.link_frequencies[0]);
+
+    supported_modes_12bit[0].min_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx];
+    supported_modes_12bit[0].default_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx];
+    supported_modes_12bit[1].min_HMAX = HMAX_table_4lane_1080P[imx585->link_freq_idx];
+    supported_modes_12bit[1].default_HMAX = HMAX_table_4lane_1080P[imx585->link_freq_idx];
+    supported_modes_16bit[0].min_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx];
+    supported_modes_16bit[0].default_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx];
+    supported_modes_16bit[1].min_HMAX = HMAX_table_4lane_1080P[imx585->link_freq_idx];
+    supported_modes_16bit[1].default_HMAX = HMAX_table_4lane_1080P[imx585->link_freq_idx];
+
+    if (imx585->lane_count == 2){
+        supported_modes_12bit[0].min_HMAX = supported_modes_12bit[0].min_HMAX * 2;
+        supported_modes_12bit[0].default_HMAX = supported_modes_12bit[0].default_HMAX * 2;
+        supported_modes_12bit[1].min_HMAX = supported_modes_12bit[1].min_HMAX * 2;
+        supported_modes_12bit[1].default_HMAX = supported_modes_12bit[1].default_HMAX * 2;
+        supported_modes_16bit[0].min_HMAX = supported_modes_16bit[0].min_HMAX * 2;
+        supported_modes_16bit[0].default_HMAX = supported_modes_16bit[0].default_HMAX * 2;
+        supported_modes_16bit[1].min_HMAX = supported_modes_16bit[1].min_HMAX * 2;
+        supported_modes_16bit[1].default_HMAX = supported_modes_16bit[1].default_HMAX * 2;
+    }
+
+    //Update common registers for Lane / Link Speed settings
+    for(i=0;i<ARRAY_SIZE(mode_common_regs);i++){
+        if(mode_common_regs[i].address == 0x3040){
+            mode_common_regs[i].val = imx585->lane_count == 2 ? 0x01:0x03;
+        }
+        if(mode_common_regs[i].address == 0x3015){
+            mode_common_regs[i].val =  link_freqs_reg_value[imx585->link_freq_idx];
+        }
+    }
+    ret = 0;
+
+error_out:
+    v4l2_fwnode_endpoint_free(&ep_cfg);
+    fwnode_handle_put(endpoint);
+
+    return ret;
+}
+
+
 static int imx585_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
 	struct imx585 *imx585;
 	const struct of_device_id *match;
 	int ret;
-    u32 tm_of;
+    u32 mono;
 
 	imx585 = devm_kzalloc(&client->dev, sizeof(*imx585), GFP_KERNEL);
 	if (!imx585)
@@ -1901,12 +2070,15 @@ static int imx585_probe(struct i2c_client *client)
 	imx585->compatible_data =
 		(const struct imx585_compatible_data *)match->data;
 
-    /* From imx477.c */
     /* Default the mono mode from OF to -1, which means invalid */
-    ret = of_property_read_u32(dev->of_node, "mono-mode", &tm_of);
+    ret = of_property_read_u32(dev->of_node, "mono-mode", &mono);
     imx585->mono = (ret == 0);
-    dev_info(dev, "IMX585 mono option: %d\n", imx585->mono);
+    dev_info(dev, "Mono: %d\n", imx585->mono);
 
+    /* Check the hardware configuration in device tree */
+    if (imx585_check_hwcfg(dev, imx585)){
+        return -EINVAL;
+    }
 
 	/* Get system clock (xclk) */
 	imx585->xclk = devm_clk_get(dev, NULL);

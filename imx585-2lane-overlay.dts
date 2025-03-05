@@ -65,7 +65,7 @@
 				port {
 					cam_endpoint: endpoint {
 						clock-lanes = <0>;
-						data-lanes = <1 2 3 4>;
+						data-lanes = <1 2>;
 						clock-noncontinuous;
 						remote-endpoint = <&csi_ep>;
 						link-frequencies =
@@ -88,7 +88,7 @@
 				csi_ep: endpoint {
 					remote-endpoint = <&cam_endpoint>;
 					clock-lanes = <0>;
-					data-lanes = <1 2 3 4>;
+					data-lanes = <1 2>;
 					clock-noncontinuous;
 				};
 			};

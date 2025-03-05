@@ -1,5 +1,6 @@
 #!/bin/sh
 
 dtc -Wno-interrupts_property -@ -I dts -O dtb -o imx585.dtbo imx585-overlay.dts
-
+dtc -Wno-interrupts_property -@ -I dts -O dtb -o imx585-2lane.dtbo imx585-2lane-overlay.dts
 install -m 751 imx585.dtbo /boot/overlays/
+install -m 751 imx585-2lane.dtbo /boot/overlays/

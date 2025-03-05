@@ -94,10 +94,42 @@ camera_auto_detect=0
 dtoverlay=imx585,mono
 ```
 
+### Lane Count
+
+If you want to use 2-lane for IMX585, change the dtoverlay name to imx585-2lane like this:
+```
+camera_auto_detect=0
+dtoverlay=imx585-2lane
+```
+
+
+### link-frequency
+
+If you want to change the default link frequency of 1440Mbps/lane (720Mhz), you can chage it like the following:
+```
+camera_auto_detect=0
+dtoverlay=imx585,link-frequency=297000000
+```
+Here is a list of available frequencies:
+| Valid Frequency Value | Mbps/Lane | Max Framerate with 4K + 4 lane |
+| -------- | -------- | -------- |
+| 297000000|594 Mbps/Lane| 20.83|
+| 360000000|720 Mbps/Lane| 25|
+| 445500000|891 Mbps/Lane| 30|
+| 594000000|1188 Mbps/Lane| 41.67|
+| 720000000|1440 Mbps/Lane| 50|
+| 891000000|1782 Mbps/Lane| 60|
+| 1039500000|2079 Mbps/Lane| 75|
+
+Notes that by default RPI5/RP1 has a limit of 400Mpix/s processing speed, without overclocking you will be limited to ~45 FPS @ 4K
+
+
 ### mix usage
 
 Last note is that all the options can be used at the same time, the dtoverlay will looks like this:
 ```
 camera_auto_detect=0
-dtoverlay=imx585,always-on,mono,cam0
+dtoverlay=imx585,always-on,mono,cam0,link-frequency=297000000
 ```
+Imaging how many config I need to test.
+
