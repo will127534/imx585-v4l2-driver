@@ -130,6 +130,7 @@ enum {
     IMX585_LINK_FREQ_720MHZ, // 1440Mbps/lane
     IMX585_LINK_FREQ_891MHZ, // 1782Mbps/lane
     IMX585_LINK_FREQ_1039MHZ, // 2079Mbps/lane
+    IMX585_LINK_FREQ_1188MHZ, // 2376Mbps/lane
 };
 
 static const s64 link_freqs_reg_value[] = {
@@ -140,6 +141,7 @@ static const s64 link_freqs_reg_value[] = {
     [IMX585_LINK_FREQ_720MHZ]  = 0x03,
     [IMX585_LINK_FREQ_891MHZ]  = 0x02,
     [IMX585_LINK_FREQ_1039MHZ] = 0x01,
+    [IMX585_LINK_FREQ_1188MHZ] = 0x00,
 };
 
 static const s64 link_freqs[] = {
@@ -150,6 +152,7 @@ static const s64 link_freqs[] = {
     [IMX585_LINK_FREQ_720MHZ]  = 720000000,
     [IMX585_LINK_FREQ_891MHZ]  = 891000000,
     [IMX585_LINK_FREQ_1039MHZ] = 1039500000,
+    [IMX585_LINK_FREQ_1188MHZ] = 1188000000,
 };
 
 //4K min HMAX for 4-lane, times 2 for 2-lane
@@ -161,6 +164,7 @@ static const s64 HMAX_table_4lane_4K[] = {
     [IMX585_LINK_FREQ_720MHZ] =  660,
     [IMX585_LINK_FREQ_891MHZ] =  550,
     [IMX585_LINK_FREQ_1039MHZ] = 440,
+    [IMX585_LINK_FREQ_1188MHZ] = 396,
 };
 
 static const s64 HMAX_table_4lane_1080P[] = {
@@ -171,6 +175,7 @@ static const s64 HMAX_table_4lane_1080P[] = {
     [IMX585_LINK_FREQ_720MHZ] =  660,
     [IMX585_LINK_FREQ_891MHZ] =  550,
     [IMX585_LINK_FREQ_1039MHZ] = 440,
+    [IMX585_LINK_FREQ_1188MHZ] = 396,
 };
 
 struct imx585_reg {

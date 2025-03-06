@@ -123,6 +123,7 @@ Here is a list of available frequencies:
 
 Notes that by default RPI5/RP1 has a limit of 400Mpix/s processing speed, without overclocking RP1 (hence the Camera Frontend) you will be limited to ~45 FPS @ 4K
 For ClearHDR mode the framerate will be half.
+1188Mhz (2376Mbps/lane) is also in the driver but RPI4/5 doesn't supports it from testing.
 
 ### mix usage
 
