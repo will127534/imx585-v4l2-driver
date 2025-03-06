@@ -9,8 +9,6 @@
 		target = <&cam_endpoint>;
 		__overlay__ {
 			data-lanes = <1 2 3 4>;
-			link-frequencies =
-				/bits/ 64 <720000000>;
 		};
 	};
 
@@ -18,8 +16,6 @@
 		target = <&cam_endpoint>;
 		__dormant__ {
 			data-lanes = <1 2>;
-			link-frequencies =
-				/bits/ 64 <720000000>;
 		};
 	};
 
@@ -62,6 +58,8 @@
 					cam_endpoint: endpoint {
 						remote-endpoint = <&csi_ep>;
 						clock-lanes = <0>;
+						link-frequencies =
+							/bits/ 64 <720000000>;
 					};
 				};
 			};
