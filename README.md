@@ -111,7 +111,7 @@ camera_auto_detect=0
 dtoverlay=imx585,link-frequency=297000000
 ```
 Here is a list of available frequencies:
-| Valid Frequency Value | Mbps/Lane | Max Framerate with 4K + 4 lane | Max Framerate with 4K + 2 lane |
+| Valid Frequency Value | Mbps/Lane | Max Framerate with 4K 12bit + 4 lane | Max Framerate with 4K 12bit + 2 lane |
 | -------- | -------- | -------- | -------- |
 | 297000000|594 Mbps/Lane| 20.8 fps | 10.4 fps|
 | 360000000|720 Mbps/Lane| 25.0 fps | 12.5 fps|
