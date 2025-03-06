@@ -114,7 +114,7 @@ Here is a list of available frequencies:
 | Valid Frequency Value | Mbps/Lane | Max Framerate with 4K + 4 lane | Max Framerate with 4K + 2 lane |
 | -------- | -------- | -------- | -------- |
 | 297000000|594 Mbps/Lane| 20.8 fps | 10.4 fps|
-| 360000000|720 Mbps/Lane| 25 fp | 12.5 fps|
+| 360000000|720 Mbps/Lane| 25.0 fps | 12.5 fps|
 | 445500000|891 Mbps/Lane| 30.0 fps | 15.0 fps|
 | 594000000|1188 Mbps/Lane| 41.7 fps| 20.8 fps|
 | 720000000|1440 Mbps/Lane| 50.0 fps | 25.0 fps|
