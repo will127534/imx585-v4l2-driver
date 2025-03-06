@@ -96,10 +96,10 @@ dtoverlay=imx585,mono
 
 ### Lane Count
 
-If you want to use 2-lane for IMX585, change the dtoverlay name to imx585-2lane like this:
+If you want to use 2-lane for IMX585, append the dtoverlay with `,2lane` like this:  
 ```
 camera_auto_detect=0
-dtoverlay=imx585-2lane
+dtoverlay=imx585,2lane
 ```
 
 

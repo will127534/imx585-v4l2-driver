@@ -2034,7 +2034,7 @@ static int imx585_check_hwcfg(struct device *dev, struct imx585 *imx585)
     //Update common registers for Lane / Link Speed settings
     for(i=0;i<ARRAY_SIZE(mode_common_regs);i++){
         if(mode_common_regs[i].address == 0x3040){
-            mode_common_regs[i].val = imx585->lane_count == 2 ? 0x01:0x03;
+            mode_common_regs[i].val = (imx585->lane_count == 2) ? 0x01:0x03;
         }
         if(mode_common_regs[i].address == 0x3015){
             mode_common_regs[i].val =  link_freqs_reg_value[imx585->link_freq_idx];
