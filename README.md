@@ -111,18 +111,18 @@ camera_auto_detect=0
 dtoverlay=imx585,link-frequency=297000000
 ```
 Here is a list of available frequencies:
-| Valid Frequency Value | Mbps/Lane | Max Framerate with 4K + 4 lane |
-| -------- | -------- | -------- |
-| 297000000|594 Mbps/Lane| 20.83|
-| 360000000|720 Mbps/Lane| 25|
-| 445500000|891 Mbps/Lane| 30|
-| 594000000|1188 Mbps/Lane| 41.67|
-| 720000000|1440 Mbps/Lane| 50|
-| 891000000|1782 Mbps/Lane| 60|
-| 1039500000|2079 Mbps/Lane| 75|
+| Valid Frequency Value | Mbps/Lane | Max Framerate with 4K + 4 lane | Max Framerate with 4K + 2 lane |
+| -------- | -------- | -------- | -------- |
+| 297000000|594 Mbps/Lane| 20.8 fps | 10.4 fps|
+| 360000000|720 Mbps/Lane| 25 fp | 12.5 fps|
+| 445500000|891 Mbps/Lane| 30.0 fps | 15.0 fps|
+| 594000000|1188 Mbps/Lane| 41.7 fps| 20.8 fps|
+| 720000000|1440 Mbps/Lane| 50.0 fps | 25.0 fps|
+| 891000000|1782 Mbps/Lane| 60.0 fps | 30.0 fps|
+| 1039500000|2079 Mbps/Lane| 75.0 fps | 37.5 fps|
 
 Notes that by default RPI5/RP1 has a limit of 400Mpix/s processing speed, without overclocking RP1 (hence the Camera Frontend) you will be limited to ~45 FPS @ 4K
-
+For ClearHDR mode the framerate will be half.
 
 ### mix usage
 
