@@ -121,9 +121,9 @@ Here is a list of available frequencies:
 | 891000000|1782 Mbps/Lane| 60.0 fps | 30.0 fps|
 | 1039500000|2079 Mbps/Lane| 75.0 fps | 37.5 fps|
 
-Notes that by default RPI5/RP1 has a limit of 400Mpix/s processing speed, without overclocking RP1 (hence the Camera Frontend) you will be limited to ~45 FPS @ 4K
-For ClearHDR mode the framerate will be half.
-1188Mhz (2376Mbps/lane) is also in the driver but RPI4 doesn't supports it from testing and RPI5 experience framedrop.
+Notes that by default RPI5/RP1 has a limit of 400Mpix/s processing speed, without overclocking RP1 (hence the Camera Frontend) you will be limited to ~45 FPS @ 4K.  
+For ClearHDR mode the framerate will be half.  
+1188Mhz (2376Mbps/lane) is also in the driver but RPI4 doesn't supports it from testing and RPI5 experience framedrop.  
 
 ### mix usage
 
