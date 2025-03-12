@@ -2005,24 +2005,24 @@ static int imx585_check_hwcfg(struct device *dev, struct imx585 *imx585)
 
     dev_info(dev, "Link Speed: %lld Mhz\n",ep_cfg.link_frequencies[0]);
 
-    supported_modes_12bit[0].min_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx];
-    supported_modes_12bit[0].default_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx];
-    supported_modes_12bit[1].min_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx] * 2;
-    supported_modes_12bit[1].default_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx] * 2;
-    supported_modes_16bit[0].min_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx];
-    supported_modes_16bit[0].default_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx];
-    supported_modes_16bit[1].min_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx] * 2;
-    supported_modes_16bit[1].default_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx] * 2;
+    supported_modes_12bit[0].min_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx]/2;
+    supported_modes_12bit[0].default_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx]/2;
+    supported_modes_12bit[1].min_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx];
+    supported_modes_12bit[1].default_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx];
+    supported_modes_16bit[0].min_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx]/2;
+    supported_modes_16bit[0].default_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx]/2;
+    supported_modes_16bit[1].min_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx];
+    supported_modes_16bit[1].default_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx];
 
     if (imx585->lane_count == 2){
         supported_modes_12bit[0].min_HMAX = supported_modes_12bit[0].min_HMAX * 2;
         supported_modes_12bit[0].default_HMAX = supported_modes_12bit[0].default_HMAX * 2;
-        supported_modes_12bit[1].min_HMAX = supported_modes_12bit[1].min_HMAX * 4;
-        supported_modes_12bit[1].default_HMAX = supported_modes_12bit[1].default_HMAX * 4;
+        supported_modes_12bit[1].min_HMAX = supported_modes_12bit[1].min_HMAX * 2;
+        supported_modes_12bit[1].default_HMAX = supported_modes_12bit[1].default_HMAX * 2;
         supported_modes_16bit[0].min_HMAX = supported_modes_16bit[0].min_HMAX * 2;
         supported_modes_16bit[0].default_HMAX = supported_modes_16bit[0].default_HMAX * 2;
-        supported_modes_16bit[1].min_HMAX = supported_modes_16bit[1].min_HMAX * 4;
-        supported_modes_16bit[1].default_HMAX = supported_modes_16bit[1].default_HMAX * 4;
+        supported_modes_16bit[1].min_HMAX = supported_modes_16bit[1].min_HMAX * 2;
+        supported_modes_16bit[1].default_HMAX = supported_modes_16bit[1].default_HMAX * 2;
     }
 
     //Update common registers for Lane / Link Speed settings
