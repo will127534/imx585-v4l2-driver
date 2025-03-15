@@ -94,10 +94,43 @@ camera_auto_detect=0
 dtoverlay=imx585,mono
 ```
 
+### Lane Count
+
+If you want to use 2-lane for IMX585, append the dtoverlay with `,2lane` like this:  
+```
+camera_auto_detect=0
+dtoverlay=imx585,2lane
+```
+
+
+### link-frequency
+
+If you want to change the default link frequency of 1440Mbps/lane (720Mhz), you can chage it like the following:
+```
+camera_auto_detect=0
+dtoverlay=imx585,link-frequency=297000000
+```
+Here is a list of available frequencies:
+| Valid Frequency Value | Mbps/Lane | Max Framerate with 4K 12bit + 4 lane | Max Framerate with 4K 12bit + 2 lane |
+| -------- | -------- | -------- | -------- |
+| 297000000|594 Mbps/Lane| 20.8 fps | 10.4 fps|
+| 360000000|720 Mbps/Lane| 25.0 fps | 12.5 fps|
+| 445500000|891 Mbps/Lane| 30.0 fps | 15.0 fps|
+| 594000000|1188 Mbps/Lane| 41.7 fps| 20.8 fps|
+| 720000000|1440 Mbps/Lane| 50.0 fps | 25.0 fps|
+| 891000000|1782 Mbps/Lane| 60.0 fps | 30.0 fps|
+| 1039500000|2079 Mbps/Lane| 75.0 fps | 37.5 fps|
+
+Notes that by default RPI5/RP1 has a limit of 400Mpix/s processing speed, without overclocking RP1 (hence the Camera Frontend) you will be limited to ~43.8 FPS @ 4K.  
+For ClearHDR mode the framerate will be half, for 1080P 2x2 binned the framerate will be double.  
+1188 Mhz (2376 Mbps/lane) is also in the driver but RPI4 doesn't supports it from testing and RPI5 experience framedrop.  
+
 ### mix usage
 
 Last note is that all the options can be used at the same time, the dtoverlay will looks like this:
 ```
 camera_auto_detect=0
-dtoverlay=imx585,always-on,mono,cam0
+dtoverlay=imx585,always-on,mono,cam0,link-frequency=297000000
 ```
+Imaging how many config I need to test.
+

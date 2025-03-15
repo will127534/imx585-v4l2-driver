@@ -1,84 +1,73 @@
 // SPDX-License-Identifier: GPL-2.0-only
-// Definitions for IMX283 camera module on VC I2C bus
+// Definitions for IMX585 camera module on VC I2C bus
 /dts-v1/;
 /plugin/;
 /{
 	compatible = "brcm,bcm2835";
 
 	fragment@0 {
-		target = <&i2c0if>;
+		target = <&cam_endpoint>;
 		__overlay__ {
-			status = "okay";
+			data-lanes = <1 2 3 4>;
 		};
 	};
 
-	clk_frag: fragment@1 {
-		target = <&cam1_clk>;
-		cam_clk: __overlay__ {
-			clock-frequency = <24000000>;
-			status = "okay";
+	fragment@1 {
+		target = <&cam_endpoint>;
+		__dormant__ {
+			data-lanes = <1 2>;
 		};
 	};
 
 	fragment@2 {
-		target = <&i2c0mux>;
+		target = <&csi_ep>;
 		__overlay__ {
-			status = "okay";
+			data-lanes = <1 2 3 4>;
 		};
 	};
 
-	reg_frag: fragment@3 {
-		target = <&cam1_reg>;
-		cam_reg: __overlay__ {
-			startup-delay-us = <500000>;
-		};
-	};
-
-	reg_alwayson_frag: fragment@99 {
-		target = <&cam1_reg>;
+	fragment@3 {
+		target = <&csi_ep>;
 		__dormant__ {
-			regulator-always-on;
+			data-lanes = <1 2>;
 		};
 	};
 
-	i2c_frag: fragment@100 {
+	i2c_frag: fragment@10 {
 		target = <&i2c_csi_dsi>;
 		__overlay__ {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "okay";
 
-			cam_node: imx585@1A {
-				reg = <0x1A>;
-				status = "okay";
+			cam_node: imx585@1a {
 				compatible = "sony,imx585";
+				reg = <0x1a>;
 				clocks = <&cam1_clk>;
 				clock-names = "xclk";
+				clock-frequency = <24000000>;
+				
+				rotation = <0>;
+				orientation = <0>;
 
 				VANA-supply = <&cam1_reg>;	/* 3.3v */
 				VDIG-supply = <&cam_dummy_reg>;	/* 1.1v */
 				VDDL-supply = <&cam_dummy_reg>;	/* 1.8v */
 
-				rotation = <0>;
-				orientation = <0>;
-
 				port {
 					cam_endpoint: endpoint {
-						clock-lanes = <0>;
-						data-lanes = <1 2 3 4>;
-						clock-noncontinuous;
 						remote-endpoint = <&csi_ep>;
+						clock-lanes = <0>;
 						link-frequencies =
 							/bits/ 64 <720000000>;
 					};
 				};
-
 			};
 
 		};
 	};
 
-	csi_frag: fragment@101 {
+	csi_frag: fragment@11 {
 		target = <&csi1>;
 		csi: __overlay__ {
 			status = "okay";
@@ -87,26 +76,45 @@
 			port {
 				csi_ep: endpoint {
 					remote-endpoint = <&cam_endpoint>;
-					clock-lanes = <0>;
-					data-lanes = <1 2 3 4>;
-					clock-noncontinuous;
 				};
 			};
 		};
 	};
 
+	fragment@12 {
+		target = <&i2c0if>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
+	clk_frag: fragment@13 {
+		target = <&cam1_clk>;
+		cam_clk: __overlay__ {
+			status = "okay";
+			clock-frequency = <24000000>;
+			//clock-frequency = <37125000>;
+		};
+	};
+
+	fragment@14 {
+		target = <&i2c0mux>;
+		__overlay__ {
+			status = "okay";
+		};
+	};
+
 	__overrides__ {
+		2lane = <0>, "-0+1-2+3";
 		rotation = <&cam_node>,"rotation:0";
 		orientation = <&cam_node>,"orientation:0";
 		media-controller = <&csi>,"brcm,media-controller?";
 		cam0 = <&i2c_frag>, "target:0=",<&i2c_csi_dsi0>,
 		       <&csi_frag>, "target:0=",<&csi0>,
 		       <&clk_frag>, "target:0=",<&cam0_clk>,
-		       <&reg_frag>, "target:0=",<&cam0_reg>,
-		       <&reg_alwayson_frag>, "target:0=",<&cam0_reg>,
 		       <&cam_node>, "clocks:0=",<&cam0_clk>,
 		       <&cam_node>, "VANA-supply:0=",<&cam0_reg>;
-		always-on = <0>, "+99";
 		mono = <&cam_node>,"mono-mode:0=1";
+		link-frequency = <&cam_endpoint>,"link-frequencies#0";
 	};
 };
