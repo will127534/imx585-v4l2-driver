@@ -249,6 +249,7 @@ struct imx585_reg mode_common_regs[] = {
 
     {0x3014, 0x04},// INCK_SEL [3:0] 24 MHz
     {0x3015, 0x02},// DATARATE_SEL [3:0]  1782 Mbps
+    {0x3019, 0x00},//2x2 Bin mode, 0x01 => Mono, 0x00 => Color
     // {0x302C, 0x4C},// HMAX [15:0]
     // {0x302D, 0x04},// 
     {0x3030, 0x00},// FDG_SEL0 LCG, HCG:0x01
@@ -2032,6 +2033,14 @@ static int imx585_check_hwcfg(struct device *dev, struct imx585 *imx585)
         }
         if(mode_common_regs[i].address == 0x3015){
             mode_common_regs[i].val =  link_freqs_reg_value[imx585->link_freq_idx];
+        }
+        if(mode_common_regs[i].address == 0x3019){
+            if(imx585->mono){
+                mode_common_regs[i].val = 0x01;
+            }
+            else{
+                mode_common_regs[i].val = 0x00;
+            }
         }
     }
     ret = 0;
