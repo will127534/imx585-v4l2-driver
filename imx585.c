@@ -75,7 +75,7 @@
 
 /* Black level control */
 #define IMX585_REG_BLKLEVEL				0x30DC
-#define IMX585_BLKLEVEL_DEFAULT			0
+#define IMX585_BLKLEVEL_DEFAULT			50
 
 /* Digital Clamp */
 #define IMX585_REG_DIGITAL_CLAMP		0x3458
