@@ -47,6 +47,10 @@
 /* Link Speed */
 #define IMX585_DATARATE_SEL             0x3015
 
+/* BIN mode */
+/* 2x2 Bin mode selection, 0x01 => Mono, 0x00 => Color */
+#define IMX585_BIN_MODE                 0x3019 
+
 /* Lane Count */
 #define IMX585_LANEMODE                 0x3040
 
@@ -174,6 +178,35 @@ static const s64 HMAX_table_4lane_4K[] = {
     [IMX585_LINK_FREQ_1188MHZ] = 396,
 };
 
+struct imx585_inck_cfg {
+        u32 xclk_hz;   /* platform clock rate             */
+        u8  inck_sel;  /* value for reg 0x3014            */
+};
+
+static const struct imx585_inck_cfg imx585_inck_table[] = {
+        { 74250000, 0x00 },
+        { 37125000, 0x01 },
+        { 72000000, 0x02 },
+        { 27000000, 0x03 },
+        { 24000000, 0x04 },
+};
+
+
+/* ------------------------------------------------------------- */
+/*  Verbose run-time logging                                     */
+/* ------------------------------------------------------------- */
+static bool verbose;
+module_param(verbose, bool, 0644);
+MODULE_PARM_DESC(verbose, "Enable extra debug prints (default: off)");
+
+/*  Wrapper for chatty logs   */
+#define imx585_vlog(_dev, _fmt, ...)                     \
+        do {                                             \
+                if (unlikely(verbose))                   \
+                        dev_info(_dev, _fmt, ##__VA_ARGS__); \
+        } while (0)
+
+
 struct imx585_reg {
     u16 address;
     u8 val;
@@ -256,7 +289,6 @@ struct imx585_reg mode_common_regs[] = {
 
     {0x3014, 0x04},// INCK_SEL [3:0] 24 MHz
     {0x3015, 0x02},// DATARATE_SEL [3:0]  1782 Mbps
-    {0x3019, 0x00},//2x2 Bin mode, 0x01 => Mono, 0x00 => Color
     // {0x302C, 0x4C},// HMAX [15:0]
     // {0x302D, 0x04},// 
     {0x3030, 0x00},// FDG_SEL0 LCG, HCG:0x01
@@ -866,10 +898,14 @@ struct imx585 {
     /* Mono mode */
     bool mono;
 
+    /* Link configurations */
     unsigned int lane_count;
     unsigned int link_freq_idx;
 
-    uint16_t HMAX;
+    /* chosen INCK_SEL register value */
+    u8  inck_sel_val;
+
+    u16 HMAX;
     u32 VMAX;
     /*
      * Mutex for serialized access:
@@ -1154,9 +1190,9 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
             u32 shr;
             // V4L2_CID_EXPOSURE is in line_duration unit, (VMAX-SHR)*line_duration unit = V4L2_CID_EXPOSURE
             shr = (imx585->VMAX - ctrl->val)  & ~1u; //SHR0 has to be always a multiple of 2
-            dev_info(&client->dev,"V4L2_CID_EXPOSURE : %d\n",ctrl->val);
-            dev_info(&client->dev,"\tVMAX:%d, HMAX:%d\n",imx585->VMAX, imx585->HMAX);
-            dev_info(&client->dev,"\tSHR:%lld\n",shr);
+            imx585_vlog(&client->dev,"V4L2_CID_EXPOSURE : %d\n",ctrl->val);
+            imx585_vlog(&client->dev,"\tVMAX:%d, HMAX:%d\n",imx585->VMAX, imx585->HMAX);
+            imx585_vlog(&client->dev,"\tSHR:%d\n",shr);
 
             ret = imx585_write_reg_3byte(imx585, IMX585_REG_SHR, shr);
             if (ret)
@@ -1177,7 +1213,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
                 if ( gain < IMX585_ANA_GAIN_HCG_MIN )
                     gain = IMX585_ANA_GAIN_HCG_MIN;
             }
-            dev_info(&client->dev,"V4L2_CID_ANALOGUE_GAIN: %d, HGC: %d\n",gain, (int)useHGC);
+            imx585_vlog(&client->dev,"V4L2_CID_ANALOGUE_GAIN: %d, HGC: %d\n",gain, (int)useHGC);
 
             // Apply gain
             imx585_register_hold(imx585, true);
@@ -1204,9 +1240,9 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
             current_exposure = clamp_t(u32, current_exposure, IMX585_EXPOSURE_MIN, imx585->VMAX-IMX585_SHR_MIN);
             __v4l2_ctrl_modify_range(imx585->exposure, IMX585_EXPOSURE_MIN, imx585->VMAX-IMX585_SHR_MIN, 1, current_exposure);
 
-            dev_info(&client->dev,"V4L2_CID_VBLANK : %d\n",ctrl->val);
-            dev_info(&client->dev,"\tVMAX:%d, HMAX:%d\n",imx585->VMAX, imx585->HMAX);
-            dev_info(&client->dev,"Upate exposure limits: max:%lld, min:%lld, current:%lld\n",imx585->VMAX-IMX585_SHR_MIN, IMX585_EXPOSURE_MIN, current_exposure);
+            imx585_vlog(&client->dev,"V4L2_CID_VBLANK : %d\n",ctrl->val);
+            imx585_vlog(&client->dev,"\tVMAX:%d, HMAX:%d\n",imx585->VMAX, imx585->HMAX);
+            imx585_vlog(&client->dev,"Upate exposure limits: max:%d, min:%d, current:%d\n",imx585->VMAX-IMX585_SHR_MIN, IMX585_EXPOSURE_MIN, current_exposure);
             
             ret = imx585_write_reg_3byte(imx585, IMX585_REG_VMAX, imx585->VMAX);
             if (ret)
@@ -1224,8 +1260,8 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
             do_div(hmax,pixel_rate);
             imx585->HMAX = hmax;
             
-            dev_info(&client->dev,"V4L2_CID_HBLANK : %d\n",ctrl->val);
-            dev_info(&client->dev,"\tHMAX : %d\n",imx585->HMAX);
+            imx585_vlog(&client->dev,"V4L2_CID_HBLANK : %d\n",ctrl->val);
+            imx585_vlog(&client->dev,"\tHMAX : %d\n",imx585->HMAX);
 
             ret = imx585_write_reg_2byte(imx585, IMX585_REG_HMAX, hmax);
             if (ret)
@@ -1234,13 +1270,13 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
         }
         break;
     case V4L2_CID_HFLIP:
-        dev_info(&client->dev,"V4L2_CID_HFLIP : %d\n",ctrl->val);
+        imx585_vlog(&client->dev,"V4L2_CID_HFLIP : %d\n",ctrl->val);
         ret = imx585_write_reg_1byte(imx585, IMX585_FLIP_WINMODEH, ctrl->val);
         if (ret)
             dev_err_ratelimited(&client->dev, "Failed to write reg 0x%4.4x. error = %d\n", IMX585_FLIP_WINMODEH, ret);
         break;
     case V4L2_CID_VFLIP:
-        dev_info(&client->dev,"V4L2_CID_VFLIP : %d\n",ctrl->val);
+        imx585_vlog(&client->dev,"V4L2_CID_VFLIP : %d\n",ctrl->val);
         ret = imx585_write_reg_1byte(imx585, IMX585_FLIP_WINMODEV, ctrl->val);
         if (ret)
             dev_err_ratelimited(&client->dev, "Failed to write reg 0x%4.4x. error = %d\n", IMX585_FLIP_WINMODEV, ret);
@@ -1249,7 +1285,6 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
         dev_info(&client->dev,
              "ctrl(id:0x%x,val:0x%x) is not handled\n",
              ctrl->id, ctrl->val);
-        //ret = -EINVAL;
         break;
     }
 
@@ -1400,7 +1435,7 @@ static void imx585_set_framing_limits(struct imx585 *imx585)
 {
     struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
     const struct imx585_mode *mode = imx585->mode;
-    u64 default_hblank, max_hblank, min_hblank;
+    u64 default_hblank, max_hblank;
     u64 pixel_rate;
 
     imx585->VMAX = mode->default_VMAX;
@@ -1511,8 +1546,6 @@ static int imx585_start_streaming(struct imx585 *imx585)
     const struct IMX585_reg_list *reg_list;
     int ret;
     
-    dev_info(&client->dev,"imx585_start_streaming\n");
-
     if (!imx585->common_regs_written) {
         ret = imx585_write_regs(imx585, mode_common_regs, ARRAY_SIZE(mode_common_regs));
         if (ret) {
@@ -1520,15 +1553,26 @@ static int imx585_start_streaming(struct imx585 *imx585)
             return ret;
         }
         imx585_write_reg_2byte(imx585, IMX585_REG_BLKLEVEL, IMX585_BLKLEVEL_DEFAULT);
+
         if(imx585->lane_count == 2){
-            imx585_write_reg_2byte(imx585, IMX585_LANEMODE, 0x01);
+            imx585_write_reg_1byte(imx585, IMX585_LANEMODE, 0x01);
         }
         else{
-            imx585_write_reg_2byte(imx585, IMX585_LANEMODE, 0x03);
+            imx585_write_reg_1byte(imx585, IMX585_LANEMODE, 0x03);
         }
-        imx585_write_reg_2byte(imx585, IMX585_DATARATE_SEL, link_freqs_reg_value[imx585->link_freq_idx]);
+
+        imx585_write_reg_1byte(imx585, IMX585_DATARATE_SEL, link_freqs_reg_value[imx585->link_freq_idx]);
+
+        if(imx585->mono){
+            imx585_write_reg_1byte(imx585, IMX585_BIN_MODE, 0x01);
+        }
+        else{
+            imx585_write_reg_1byte(imx585, IMX585_BIN_MODE, 0x00);
+        }
+
+
         imx585->common_regs_written = true;
-        dev_info(&client->dev,"common_regs_written\n");
+        imx585_vlog(&client->dev,"common_regs_written\n");
     }
 
     /* Apply default values of current mode */
@@ -1571,6 +1615,8 @@ static int imx585_start_streaming(struct imx585 *imx585)
 
     /* Set stream on register */
     ret = imx585_write_reg_1byte(imx585, IMX585_REG_MODE_SELECT, IMX585_MODE_STREAMING);
+
+    dev_info(&client->dev,"Start Streaming\n");
     usleep_range(IMX585_STREAM_DELAY_US, IMX585_STREAM_DELAY_US + IMX585_STREAM_DELAY_RANGE_US);
     return ret;
 }
@@ -1581,7 +1627,7 @@ static void imx585_stop_streaming(struct imx585 *imx585)
     struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
     int ret;
     
-    dev_info(&client->dev,"imx585_stop_streaming\n");
+    dev_info(&client->dev,"Stop Streaming\n");
 
     /* set stream off register */
     ret = imx585_write_reg_1byte(imx585, IMX585_REG_MODE_SELECT, IMX585_MODE_STANDBY);
@@ -2018,7 +2064,7 @@ static int imx585_probe(struct i2c_client *client)
     struct device *dev = &client->dev;
     struct imx585 *imx585;
     const struct of_device_id *match;
-    int ret;
+    int ret, i;
     u32 mono;
 
     imx585 = devm_kzalloc(&client->dev, sizeof(*imx585), GFP_KERNEL);
@@ -2051,11 +2097,24 @@ static int imx585_probe(struct i2c_client *client)
     }
 
     imx585->xclk_freq = clk_get_rate(imx585->xclk);
-    if (imx585->xclk_freq != IMX585_XCLK_FREQ) {
-        dev_err(dev, "xclk frequency not supported: %d Hz\n",
-            imx585->xclk_freq);
+
+
+    for (i = 0; i < ARRAY_SIZE(imx585_inck_table); ++i) {
+        if (imx585_inck_table[i].xclk_hz == imx585->xclk_freq) {
+                imx585->inck_sel_val = imx585_inck_table[i].inck_sel;
+                break;
+        }
+    }
+
+    if (i == ARRAY_SIZE(imx585_inck_table)) {
+        dev_err(dev, "unsupported XCLK rate %u Hz\n",
+                imx585->xclk_freq);
         return -EINVAL;
     }
+
+    dev_info(dev, "XCLK %u Hz → INCK_SEL 0x%02x\n",
+             imx585->xclk_freq, imx585->inck_sel_val);
+
 
     ret = imx585_get_regulators(imx585);
     if (ret) {
