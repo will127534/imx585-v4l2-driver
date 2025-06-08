@@ -44,6 +44,12 @@
 /* In clk */
 #define IMX585_XCLK_FREQ                24000000
 
+/* Link Speed */
+#define IMX585_DATARATE_SEL             0x3015
+
+/* Lane Count */
+#define IMX585_LANEMODE                 0x3040
+
 /* VMAX internal VBLANK*/
 #define IMX585_REG_VMAX                 0x3028
 #define IMX585_VMAX_MAX                 0xfffff
@@ -156,7 +162,7 @@ static const s64 link_freqs[] = {
     [IMX585_LINK_FREQ_1188MHZ] = 1188000000,
 };
 
-//4K min HMAX for 4-lane, times 2 for 2-lane
+//min HMAX for 4-lane 4K full res mode, x2 for 2-lane, /2 for FHD
 static const s64 HMAX_table_4lane_4K[] = {
     [IMX585_LINK_FREQ_297MHZ] = 1584,
     [IMX585_LINK_FREQ_360MHZ] = 1320,
@@ -192,6 +198,9 @@ struct imx585_mode {
     /* mode has linear output (gradation compression disabled) */
     bool linear;
 
+    /* mode HMAX Scaling */
+    u8   hmax_div;      /* 1 = full for 4K, 2 = half for FHD */
+
     /* minimum H-timing */
     u64 min_HMAX;
 
@@ -203,9 +212,6 @@ struct imx585_mode {
 
     /* default V-timing */
     u64 default_VMAX;
-
-    /* minimum SHR */
-    u64 min_SHR;
 
     /* Analog crop rectangle. */
     struct v4l2_rect crop;
@@ -633,11 +639,11 @@ struct imx585_mode supported_modes_12bit[] = {
         .height = 1090,
         .hdr = false,
         .linear = true,
+        .hmax_div = 2,
         .min_HMAX = 366,
         .min_VMAX = 2250,
         .default_HMAX = 366,
         .default_VMAX = 2250,
-        .min_SHR = 8,
         .crop = {
             .left = IMX585_PIXEL_ARRAY_LEFT,
             .top = IMX585_PIXEL_ARRAY_TOP,
@@ -659,7 +665,7 @@ struct imx585_mode supported_modes_12bit[] = {
         .min_VMAX = 2250,
         .default_HMAX = 550,
         .default_VMAX = 2250,
-        .min_SHR = 8,
+        .hmax_div = 1,
         .crop = {
             .left = IMX585_PIXEL_ARRAY_LEFT,
             .top = IMX585_PIXEL_ARRAY_TOP,
@@ -684,7 +690,7 @@ struct imx585_mode supported_modes_nonlinear_12bit[] = {
         .min_VMAX = 2250, // Clear HDR original
         .default_HMAX = 366,
         .default_VMAX = 2250,
-        .min_SHR = 8,
+        .hmax_div = 2,
         .crop = {
             .left = IMX585_PIXEL_ARRAY_LEFT,
             .top = IMX585_PIXEL_ARRAY_TOP,
@@ -710,7 +716,7 @@ struct imx585_mode supported_modes_nonlinear_12bit[] = {
         .default_VMAX = 4500,
         // .default_HMAX = 550,
         // .default_VMAX = 4500,
-        .min_SHR = 8,
+        .hmax_div = 1,
         .crop = {
             .left = IMX585_PIXEL_ARRAY_LEFT,
             .top = IMX585_PIXEL_ARRAY_TOP,
@@ -739,7 +745,7 @@ struct imx585_mode supported_modes_16bit[] = {
         .default_VMAX = 4500,
         // .default_HMAX = 550,
         // .default_VMAX = 4500,
-        .min_SHR = 8,
+        .hmax_div = 2,
         .crop = {
             .left = IMX585_PIXEL_ARRAY_LEFT,
             .top = IMX585_PIXEL_ARRAY_TOP,
@@ -765,7 +771,7 @@ struct imx585_mode supported_modes_16bit[] = {
         .default_VMAX = 4500,
         // .default_HMAX = 550,
         // .default_VMAX = 4500,
-        .min_SHR = 8,
+        .hmax_div = 1,
         .crop = {
             .left = IMX585_PIXEL_ARRAY_LEFT,
             .top = IMX585_PIXEL_ARRAY_TOP,
@@ -1188,7 +1194,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
         break;
     case V4L2_CID_VBLANK:
         {
-            u32 current_exposure, max_exposure, min_exposure;
+            u32 current_exposure;
             /*
             * The VBLANK control may change the limits of usable exposure, so check
             * and adjust if necessary.
@@ -1200,7 +1206,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 
             dev_info(&client->dev,"V4L2_CID_VBLANK : %d\n",ctrl->val);
             dev_info(&client->dev,"\tVMAX:%d, HMAX:%d\n",imx585->VMAX, imx585->HMAX);
-            dev_info(&client->dev,"Upate exposure limits: max:%lld, min:%lld, current:%lld\n",max_exposure, min_exposure, current_exposure);
+            dev_info(&client->dev,"Upate exposure limits: max:%lld, min:%lld, current:%lld\n",imx585->VMAX-IMX585_SHR_MIN, IMX585_EXPOSURE_MIN, current_exposure);
             
             ret = imx585_write_reg_3byte(imx585, IMX585_REG_VMAX, imx585->VMAX);
             if (ret)
@@ -1514,6 +1520,13 @@ static int imx585_start_streaming(struct imx585 *imx585)
             return ret;
         }
         imx585_write_reg_2byte(imx585, IMX585_REG_BLKLEVEL, IMX585_BLKLEVEL_DEFAULT);
+        if(imx585->lane_count == 2){
+            imx585_write_reg_2byte(imx585, IMX585_LANEMODE, 0x01);
+        }
+        else{
+            imx585_write_reg_2byte(imx585, IMX585_LANEMODE, 0x03);
+        }
+        imx585_write_reg_2byte(imx585, IMX585_DATARATE_SEL, link_freqs_reg_value[imx585->link_freq_idx]);
         imx585->common_regs_written = true;
         dev_info(&client->dev,"common_regs_written\n");
     }
@@ -1857,7 +1870,6 @@ static int imx585_init_controls(struct imx585 *imx585)
               IMX585_ANA_GAIN_MIN, IMX585_ANA_GAIN_MAX,
               IMX585_ANA_GAIN_STEP, IMX585_ANA_GAIN_DEFAULT);
 
-
     imx585->hflip = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops, V4L2_CID_HFLIP, 0, 1, 1, 0);
     imx585->vflip = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops, V4L2_CID_VFLIP, 0, 1, 1, 0);
 
@@ -1911,7 +1923,34 @@ static const struct of_device_id imx585_dt_ids[] = {
 };
 
 
-//from imx477.c
+
+static void imx585_update_hmax(struct imx585 *imx585)
+{
+        static struct {
+                struct imx585_mode *tbl;
+                unsigned int        n;
+        } groups[] = {
+                { supported_modes_12bit,           ARRAY_SIZE(supported_modes_12bit)           },
+                { supported_modes_nonlinear_12bit, ARRAY_SIZE(supported_modes_nonlinear_12bit) },
+                { supported_modes_16bit,           ARRAY_SIZE(supported_modes_16bit)           },
+        };
+
+        const u32 base_4lane = HMAX_table_4lane_4K[imx585->link_freq_idx];
+        const u32 lane_scale = (imx585->lane_count == 2) ? 2 : 1;
+        unsigned int g, i;
+
+        for (g = 0; g < ARRAY_SIZE(groups); ++g) {
+                for (i = 0; i < groups[g].n; ++i) {
+                        struct imx585_mode *m = &groups[g].tbl[i];
+                        u32 h = (base_4lane / m->hmax_div) * lane_scale;
+
+                        m->min_HMAX     = h;
+                        m->default_HMAX = h;
+                }
+        }
+}
+
+
 static int imx585_check_hwcfg(struct device *dev, struct imx585 *imx585)
 {
     struct fwnode_handle *endpoint;
@@ -1932,7 +1971,6 @@ static int imx585_check_hwcfg(struct device *dev, struct imx585 *imx585)
         goto error_out;
     }
 
-    
     /* Check the number of MIPI CSI2 data lanes */
     if (ep_cfg.bus.mipi_csi2.num_data_lanes != 2 && ep_cfg.bus.mipi_csi2.num_data_lanes != 4) {
         dev_err(dev, "only 2 or 4 data lanes are currently supported\n");
@@ -1963,43 +2001,8 @@ static int imx585_check_hwcfg(struct device *dev, struct imx585 *imx585)
 
     dev_info(dev, "Link Speed: %lld Mhz\n",ep_cfg.link_frequencies[0]);
 
-    supported_modes_12bit[0].min_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx]/2;
-    supported_modes_12bit[0].default_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx]/2;
-    supported_modes_12bit[1].min_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx];
-    supported_modes_12bit[1].default_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx];
-    supported_modes_16bit[0].min_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx]/2;
-    supported_modes_16bit[0].default_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx]/2;
-    supported_modes_16bit[1].min_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx];
-    supported_modes_16bit[1].default_HMAX = HMAX_table_4lane_4K[imx585->link_freq_idx];
+    imx585_update_hmax(imx585);
 
-    if (imx585->lane_count == 2){
-        supported_modes_12bit[0].min_HMAX = supported_modes_12bit[0].min_HMAX * 2;
-        supported_modes_12bit[0].default_HMAX = supported_modes_12bit[0].default_HMAX * 2;
-        supported_modes_12bit[1].min_HMAX = supported_modes_12bit[1].min_HMAX * 2;
-        supported_modes_12bit[1].default_HMAX = supported_modes_12bit[1].default_HMAX * 2;
-        supported_modes_16bit[0].min_HMAX = supported_modes_16bit[0].min_HMAX * 2;
-        supported_modes_16bit[0].default_HMAX = supported_modes_16bit[0].default_HMAX * 2;
-        supported_modes_16bit[1].min_HMAX = supported_modes_16bit[1].min_HMAX * 2;
-        supported_modes_16bit[1].default_HMAX = supported_modes_16bit[1].default_HMAX * 2;
-    }
-
-    //Update common registers for Lane / Link Speed settings
-    for(i=0;i<ARRAY_SIZE(mode_common_regs);i++){
-        if(mode_common_regs[i].address == 0x3040){
-            mode_common_regs[i].val = (imx585->lane_count == 2) ? 0x01:0x03;
-        }
-        if(mode_common_regs[i].address == 0x3015){
-            mode_common_regs[i].val =  link_freqs_reg_value[imx585->link_freq_idx];
-        }
-        if(mode_common_regs[i].address == 0x3019){
-            if(imx585->mono){
-                mode_common_regs[i].val = 0x01;
-            }
-            else{
-                mode_common_regs[i].val = 0x00;
-            }
-        }
-    }
     ret = 0;
 
 error_out:
