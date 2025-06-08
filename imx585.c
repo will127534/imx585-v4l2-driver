@@ -30,10 +30,6 @@
 #define MEDIA_BUS_FMT_SENSOR_DATA       0x7002
 #endif
 
-/* Chip ID */
-#define IMX585_REG_CHIP_ID              0x30DC
-#define IMX585_CHIP_ID                  0x32
-
 /* Standby or streaming mode */
 #define IMX585_REG_MODE_SELECT          0x3000
 #define IMX585_MODE_STANDBY             0x01
@@ -41,8 +37,8 @@
 #define IMX585_STREAM_DELAY_US          25000
 #define IMX585_STREAM_DELAY_RANGE_US    1000
 
-/* In clk */
-#define IMX585_XCLK_FREQ                24000000
+/* Clk selection */
+#define IMX585_INCK_SEL                 0x3014
 
 /* Link Speed */
 #define IMX585_DATARATE_SEL             0x3015
@@ -190,21 +186,6 @@ static const struct imx585_inck_cfg imx585_inck_table[] = {
         { 27000000, 0x03 },
         { 24000000, 0x04 },
 };
-
-
-/* ------------------------------------------------------------- */
-/*  Verbose run-time logging                                     */
-/* ------------------------------------------------------------- */
-static bool verbose;
-module_param(verbose, bool, 0644);
-MODULE_PARM_DESC(verbose, "Enable extra debug prints (default: off)");
-
-/*  Wrapper for chatty logs   */
-#define imx585_vlog(_dev, _fmt, ...)                     \
-        do {                                             \
-                if (unlikely(verbose))                   \
-                        dev_info(_dev, _fmt, ##__VA_ARGS__); \
-        } while (0)
 
 
 struct imx585_reg {
@@ -1190,9 +1171,9 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
             u32 shr;
             // V4L2_CID_EXPOSURE is in line_duration unit, (VMAX-SHR)*line_duration unit = V4L2_CID_EXPOSURE
             shr = (imx585->VMAX - ctrl->val)  & ~1u; //SHR0 has to be always a multiple of 2
-            imx585_vlog(&client->dev,"V4L2_CID_EXPOSURE : %d\n",ctrl->val);
-            imx585_vlog(&client->dev,"\tVMAX:%d, HMAX:%d\n",imx585->VMAX, imx585->HMAX);
-            imx585_vlog(&client->dev,"\tSHR:%d\n",shr);
+            dev_dbg(&client->dev,"V4L2_CID_EXPOSURE : %d\n",ctrl->val);
+            dev_dbg(&client->dev,"\tVMAX:%d, HMAX:%d\n",imx585->VMAX, imx585->HMAX);
+            dev_dbg(&client->dev,"\tSHR:%d\n",shr);
 
             ret = imx585_write_reg_3byte(imx585, IMX585_REG_SHR, shr);
             if (ret)
@@ -1213,7 +1194,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
                 if ( gain < IMX585_ANA_GAIN_HCG_MIN )
                     gain = IMX585_ANA_GAIN_HCG_MIN;
             }
-            imx585_vlog(&client->dev,"V4L2_CID_ANALOGUE_GAIN: %d, HGC: %d\n",gain, (int)useHGC);
+            dev_dbg(&client->dev,"V4L2_CID_ANALOGUE_GAIN: %d, HGC: %d\n",gain, (int)useHGC);
 
             // Apply gain
             imx585_register_hold(imx585, true);
@@ -1230,19 +1211,20 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
         break;
     case V4L2_CID_VBLANK:
         {
-            u32 current_exposure;
+            u32 current_exposure = imx585->exposure->cur.val;
             /*
             * The VBLANK control may change the limits of usable exposure, so check
             * and adjust if necessary.
             */
             imx585->VMAX = (mode->height + ctrl->val) & ~1u; //VMAX has to be always a multiple of 2
-            /* Calculate new maximum exposure limits. */
+
+            /* New maximum exposure limits, modifying the range and make sure we are not exceed the new maximum. */
             current_exposure = clamp_t(u32, current_exposure, IMX585_EXPOSURE_MIN, imx585->VMAX-IMX585_SHR_MIN);
             __v4l2_ctrl_modify_range(imx585->exposure, IMX585_EXPOSURE_MIN, imx585->VMAX-IMX585_SHR_MIN, 1, current_exposure);
 
-            imx585_vlog(&client->dev,"V4L2_CID_VBLANK : %d\n",ctrl->val);
-            imx585_vlog(&client->dev,"\tVMAX:%d, HMAX:%d\n",imx585->VMAX, imx585->HMAX);
-            imx585_vlog(&client->dev,"Upate exposure limits: max:%d, min:%d, current:%d\n",imx585->VMAX-IMX585_SHR_MIN, IMX585_EXPOSURE_MIN, current_exposure);
+            dev_dbg(&client->dev,"V4L2_CID_VBLANK : %d\n",ctrl->val);
+            dev_dbg(&client->dev,"\tVMAX:%d, HMAX:%d\n",imx585->VMAX, imx585->HMAX);
+            dev_dbg(&client->dev,"Upate exposure limits: max:%d, min:%d, current:%d\n",imx585->VMAX-IMX585_SHR_MIN, IMX585_EXPOSURE_MIN, current_exposure);
             
             ret = imx585_write_reg_3byte(imx585, IMX585_REG_VMAX, imx585->VMAX);
             if (ret)
@@ -1260,8 +1242,8 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
             do_div(hmax,pixel_rate);
             imx585->HMAX = hmax;
             
-            imx585_vlog(&client->dev,"V4L2_CID_HBLANK : %d\n",ctrl->val);
-            imx585_vlog(&client->dev,"\tHMAX : %d\n",imx585->HMAX);
+            dev_dbg(&client->dev,"V4L2_CID_HBLANK : %d\n",ctrl->val);
+            dev_dbg(&client->dev,"\tHMAX : %d\n",imx585->HMAX);
 
             ret = imx585_write_reg_2byte(imx585, IMX585_REG_HMAX, hmax);
             if (ret)
@@ -1270,13 +1252,13 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
         }
         break;
     case V4L2_CID_HFLIP:
-        imx585_vlog(&client->dev,"V4L2_CID_HFLIP : %d\n",ctrl->val);
+        dev_dbg(&client->dev,"V4L2_CID_HFLIP : %d\n",ctrl->val);
         ret = imx585_write_reg_1byte(imx585, IMX585_FLIP_WINMODEH, ctrl->val);
         if (ret)
             dev_err_ratelimited(&client->dev, "Failed to write reg 0x%4.4x. error = %d\n", IMX585_FLIP_WINMODEH, ret);
         break;
     case V4L2_CID_VFLIP:
-        imx585_vlog(&client->dev,"V4L2_CID_VFLIP : %d\n",ctrl->val);
+        dev_dbg(&client->dev,"V4L2_CID_VFLIP : %d\n",ctrl->val);
         ret = imx585_write_reg_1byte(imx585, IMX585_FLIP_WINMODEV, ctrl->val);
         if (ret)
             dev_err_ratelimited(&client->dev, "Failed to write reg 0x%4.4x. error = %d\n", IMX585_FLIP_WINMODEV, ret);
@@ -1463,7 +1445,7 @@ static void imx585_set_framing_limits(struct imx585 *imx585)
                  1, mode->default_VMAX - mode->height);
     __v4l2_ctrl_s_ctrl(imx585->vblank, mode->default_VMAX - mode->height);
 
-    dev_info(&client->dev,"Setting default HBLANK : %lld, VBLANK : %lld with PixelRate: %lld\n",default_hblank,mode->default_VMAX - mode->height, pixel_rate);
+    dev_info(&client->dev,"Setting default HBLANK : %llu, VBLANK : %llu with PixelRate: %lld\n",default_hblank,mode->default_VMAX - mode->height, pixel_rate);
 }
 
 
@@ -1552,7 +1534,10 @@ static int imx585_start_streaming(struct imx585 *imx585)
             dev_err(&client->dev, "%s failed to set common settings\n", __func__);
             return ret;
         }
+
+        imx585_write_reg_1byte(imx585, IMX585_INCK_SEL, imx585->inck_sel_val);
         imx585_write_reg_2byte(imx585, IMX585_REG_BLKLEVEL, IMX585_BLKLEVEL_DEFAULT);
+        imx585_write_reg_1byte(imx585, IMX585_DATARATE_SEL, link_freqs_reg_value[imx585->link_freq_idx]);
 
         if(imx585->lane_count == 2){
             imx585_write_reg_1byte(imx585, IMX585_LANEMODE, 0x01);
@@ -1561,8 +1546,6 @@ static int imx585_start_streaming(struct imx585 *imx585)
             imx585_write_reg_1byte(imx585, IMX585_LANEMODE, 0x03);
         }
 
-        imx585_write_reg_1byte(imx585, IMX585_DATARATE_SEL, link_freqs_reg_value[imx585->link_freq_idx]);
-
         if(imx585->mono){
             imx585_write_reg_1byte(imx585, IMX585_BIN_MODE, 0x01);
         }
@@ -1570,9 +1553,8 @@ static int imx585_start_streaming(struct imx585 *imx585)
             imx585_write_reg_1byte(imx585, IMX585_BIN_MODE, 0x00);
         }
 
-
         imx585->common_regs_written = true;
-        imx585_vlog(&client->dev,"common_regs_written\n");
+        dev_dbg(&client->dev,"common_regs_written\n");
     }
 
     /* Apply default values of current mode */
@@ -1780,17 +1762,17 @@ static int imx585_get_regulators(struct imx585 *imx585)
 }
 
 /* Verify chip ID */
-static int imx585_identify_module(struct imx585 *imx585, u32 expected_id)
+static int imx585_check_module_exists(struct imx585 *imx585)
 {
     struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
     int ret;
     u32 val;
 
-    ret = imx585_read_reg(imx585, IMX585_REG_CHIP_ID,
+    /* We don't actually have a CHIP ID register so we try to read from BLKLEVEL instead*/
+    ret = imx585_read_reg(imx585, IMX585_REG_BLKLEVEL,
                   1, &val);
     if (ret) {
-        dev_err(&client->dev, "failed to read chip id %x, with error %d\n",
-            expected_id, ret);
+        dev_err(&client->dev, "failed to read chip id, with error %d\n", ret);
         return ret;
     }
 
@@ -1955,20 +1937,10 @@ static void imx585_free_controls(struct imx585 *imx585)
     mutex_destroy(&imx585->mutex);
 }
 
-static const struct imx585_compatible_data imx585_compatible = {
-    .chip_id = IMX585_CHIP_ID,
-    .extra_regs = {
-        .num_of_regs = 0,
-        .regs = NULL
-    }
-};
-
 static const struct of_device_id imx585_dt_ids[] = {
-    { .compatible = "sony,imx585", .data = &imx585_compatible },
+    { .compatible = "sony,imx585" },
     { /* sentinel */ }
 };
-
-
 
 static void imx585_update_hmax(struct imx585 *imx585)
 {
@@ -2065,7 +2037,7 @@ static int imx585_probe(struct i2c_client *client)
     struct imx585 *imx585;
     const struct of_device_id *match;
     int ret, i;
-    u32 mono;
+    bool mono;
 
     imx585 = devm_kzalloc(&client->dev, sizeof(*imx585), GFP_KERNEL);
     if (!imx585)
@@ -2079,9 +2051,7 @@ static int imx585_probe(struct i2c_client *client)
     imx585->compatible_data =
         (const struct imx585_compatible_data *)match->data;
 
-    /* Default the mono mode from OF to -1, which means invalid */
-    ret = of_property_read_u32(dev->of_node, "mono-mode", &mono);
-    imx585->mono = (ret == 0);
+    imx585->mono = of_property_read_bool(dev->of_node, "mono-mode");
     dev_info(dev, "Mono: %d\n", imx585->mono);
 
     /* Check the hardware configuration in device tree */
@@ -2127,14 +2097,14 @@ static int imx585_probe(struct i2c_client *client)
                              GPIOD_OUT_HIGH);
     
     /*
-     * The sensor must be powered for imx585_identify_module()
-     * to be able to read the CHIP_ID register
+     * The sensor must be powered for imx585_check_module_exists()
+     * to be able to read register
      */
     ret = imx585_power_on(dev);
     if (ret)
         return ret;
 
-    ret = imx585_identify_module(imx585, imx585->compatible_data->chip_id);
+    ret = imx585_check_module_exists(imx585);
     if (ret)
         goto error_power_off;
 
