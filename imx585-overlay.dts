@@ -46,7 +46,7 @@
 				clocks = <&cam1_clk>;
 				clock-names = "xclk";
 				clock-frequency = <24000000>;
-				
+
 				rotation = <0>;
 				orientation = <0>;
 
