@@ -115,6 +115,7 @@
 		       <&cam_node>, "clocks:0=",<&cam0_clk>,
 		       <&cam_node>, "VANA-supply:0=",<&cam0_reg>;
 		mono = <&cam_node>,"mono-mode:0=1";
+		hdr = <&cam_node>,"clearHDR-mode:0=1";
 		link-frequency = <&cam_endpoint>,"link-frequencies#0";
 	};
 };
