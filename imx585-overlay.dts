@@ -65,7 +65,7 @@
 					};
 				};
 			};
-			
+
 			/* IR-cut controller – disabled by default */
         	ircut_node: ircut@34 {
                 compatible = "mcu-ircut";
@@ -126,7 +126,8 @@
 		mono = <&cam_node>,"mono-mode:0=1";
 		hdr = <&cam_node>,"clearHDR-mode:0=1";
 		link-frequency = <&cam_endpoint>,"link-frequencies#0";
-        ircut        = <&ircut_node>,"status=okay";
+        ircut        = <&ircut_node>,"status=okay",
+                       <&cam_node>,"ircut-mode:0=1";
         ircut_addr   = <&ircut_node>,"reg:0";
 	};
 };

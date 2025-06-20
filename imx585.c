@@ -748,26 +748,26 @@ static inline void get_mode_table(struct imx585 *imx585, unsigned int code,
 /* One-byte “command” sent to the IR-cut MCU at imx585->ircut_client   */
 static int imx585_ircut_write(struct imx585 *imx585, u8 cmd)
 {
-        struct i2c_client *client = imx585->ircut_client;
-        int ret;
+	struct i2c_client *client = imx585->ircut_client;
+	int ret;
 
-        /*
-         * Using SMBus is fine here because we only ever ship a single
-         * byte – it hides the start / stop boiler-plate for us.
-         *
-         *   S | client-addr | W | cmd-byte | P
-         */
-        ret = i2c_smbus_write_byte(client, cmd);
-        if (ret < 0)
-                dev_err(&client->dev, "IR-cut write failed (%d)\n", ret);
+	/*
+	 * Using SMBus is fine here because we only ever ship a single
+	 * byte – it hides the start / stop boiler-plate for us.
+	 *
+	 *   S | client-addr | W | cmd-byte | P
+	 */
+	ret = i2c_smbus_write_byte(client, cmd);
+	if (ret < 0)
+		dev_err(&client->dev, "IR-cut write failed (%d)\n", ret);
 
-        return ret;
+	return ret;
 }
 
 static int imx585_ircut_set(struct imx585 *imx585, int on)
 {
-        /* Example: 0xA5 = move in, 0x5A = move out */
-        return imx585_ircut_write(imx585, on ? 0x01 : 0x00);
+	/* Example: 0xA5 = move in, 0x5A = move out */
+	return imx585_ircut_write(imx585, on ? 0x01 : 0x00);
 }
 
 
@@ -1093,9 +1093,9 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 					    "Failed to write reg 0x%4.4x. error = %d\n",
 					    IMX585_FLIP_WINMODEV, ret);
 		break;
-        case V4L2_CID_BAND_STOP_FILTER:
-                /* should never be called if !has_ircut */
-                return imx585_ircut_set(imx585, ctrl->val);
+	case V4L2_CID_BAND_STOP_FILTER:
+		/* should never be called if !has_ircut */
+		return imx585_ircut_set(imx585, ctrl->val);
 	default:
 		dev_info(&client->dev,
 			 "ctrl(id:0x%x,val:0x%x) is not handled\n",
@@ -1773,10 +1773,10 @@ static int imx585_init_controls(struct imx585 *imx585)
 	imx585->vflip = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops, V4L2_CID_VFLIP, 0, 1, 1, 0);
 
 	if (imx585->has_ircut) {
-	        imx585->ircut_ctrl =
-	            v4l2_ctrl_new_std(&imx585->ctrl_handler, &imx585_ctrl_ops,
-	                              V4L2_CID_BAND_STOP_FILTER,
-	                              0, 1, 1, 1);
+		imx585->ircut_ctrl =
+		    v4l2_ctrl_new_std(&imx585->ctrl_handler, &imx585_ctrl_ops,
+				      V4L2_CID_BAND_STOP_FILTER,
+				      0, 1, 1, 1);
 	}
 
 	if (ctrl_hdlr->error) {
@@ -1938,13 +1938,19 @@ static int imx585_probe(struct i2c_client *client)
 	imx585->has_ircut     = false;
 	imx585->ircut_client  = NULL;
 
-	np = of_parse_phandle(dev->of_node, "ircut-controller", 0);
-	if (np){
-		imx585->ircut_client = of_find_i2c_device_by_node(np);
-		of_node_put(np);
-		imx585->has_ircut    = true;
-		dev_info(dev, "IR-cut controller present at 0x%02x\n", imx585->ircut_client->addr);
+	if(of_property_read_bool(dev->of_node, "ircut-mode")){
+		np = of_parse_phandle(dev->of_node, "ircut-controller", 0);
+		if (np){
+			imx585->ircut_client = of_find_i2c_device_by_node(np);
+			of_node_put(np);
+			imx585->has_ircut    = true;
+			dev_info(dev, "IR-cut controller present at 0x%02x\n", imx585->ircut_client->addr);
+		}
+	} else{
+		dev_info(dev, "No IR-cut controller\n");
 	}
+
+
 	
 
 	/* Check the hardware configuration in device tree */
