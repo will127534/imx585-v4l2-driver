@@ -54,6 +54,8 @@
 				VDIG-supply = <&cam_dummy_reg>;	/* 1.1v */
 				VDDL-supply = <&cam_dummy_reg>;	/* 1.8v */
 
+				ircut-controller = <&ircut_node>;
+
 				port {
 					cam_endpoint: endpoint {
 						remote-endpoint = <&csi_ep>;
@@ -63,6 +65,13 @@
 					};
 				};
 			};
+			
+			/* IR-cut controller – disabled by default */
+        	ircut_node: ircut@34 {
+                compatible = "mcu-ircut";
+                reg        = <0x34>;
+                status     = "disabled";
+            };
 
 		};
 	};
@@ -117,5 +126,7 @@
 		mono = <&cam_node>,"mono-mode:0=1";
 		hdr = <&cam_node>,"clearHDR-mode:0=1";
 		link-frequency = <&cam_endpoint>,"link-frequencies#0";
+        ircut        = <&ircut_node>,"status=okay";
+        ircut_addr   = <&ircut_node>,"reg:0";
 	};
 };

@@ -581,30 +581,30 @@ struct imx585_mode supported_modes[] = {
 
 /* 12bit Only */
 static const u32 codes_normal[] = {
-        MEDIA_BUS_FMT_SRGGB12_1X12,
-        MEDIA_BUS_FMT_SGRBG12_1X12,
-        MEDIA_BUS_FMT_SGBRG12_1X12,
-        MEDIA_BUS_FMT_SBGGR12_1X12,
+	MEDIA_BUS_FMT_SRGGB12_1X12,
+	MEDIA_BUS_FMT_SGRBG12_1X12,
+	MEDIA_BUS_FMT_SGBRG12_1X12,
+	MEDIA_BUS_FMT_SBGGR12_1X12,
 };
 
 /* 12bit + 16bit Clear HDR */
 static const u32 codes_clearhdr[] = {
 	/* 16-bit modes. */
-        MEDIA_BUS_FMT_SRGGB16_1X16,
-        MEDIA_BUS_FMT_SGRBG16_1X16,
-        MEDIA_BUS_FMT_SGBRG16_1X16,
-        MEDIA_BUS_FMT_SBGGR16_1X16,
-        /* 12-bit modes. */
-        MEDIA_BUS_FMT_SRGGB12_1X12,
-        MEDIA_BUS_FMT_SGRBG12_1X12,
-        MEDIA_BUS_FMT_SGBRG12_1X12,
-        MEDIA_BUS_FMT_SBGGR12_1X12,
+	MEDIA_BUS_FMT_SRGGB16_1X16,
+	MEDIA_BUS_FMT_SGRBG16_1X16,
+	MEDIA_BUS_FMT_SGBRG16_1X16,
+	MEDIA_BUS_FMT_SBGGR16_1X16,
+	/* 12-bit modes. */
+	MEDIA_BUS_FMT_SRGGB12_1X12,
+	MEDIA_BUS_FMT_SGRBG12_1X12,
+	MEDIA_BUS_FMT_SGBRG12_1X12,
+	MEDIA_BUS_FMT_SBGGR12_1X12,
 };
 
 /* Flip isn’t relevant for mono */
 static const u32 mono_codes[] = {
-        MEDIA_BUS_FMT_Y16_1X16,   /* 16-bit mono */
-        MEDIA_BUS_FMT_Y12_1X12,   /* 12-bit mono */
+	MEDIA_BUS_FMT_Y16_1X16,   /* 16-bit mono */
+	MEDIA_BUS_FMT_Y12_1X12,   /* 12-bit mono */
 };
 
 /* regulator supplies */
@@ -657,6 +657,10 @@ struct imx585 {
 	struct v4l2_ctrl *vblank;
 	struct v4l2_ctrl *hblank;
 
+	bool          has_ircut;
+	struct v4l2_ctrl *ircut_ctrl;
+	struct i2c_client  *ircut_client; 
+
 	/* Current mode */
 	const struct imx585_mode *mode;
 
@@ -697,8 +701,8 @@ static inline void get_mode_table(struct imx585 *imx585, unsigned int code,
 	*mode_list = NULL;
 	*num_modes = 0;
 
-    	if (imx585->mono){
-    		/* --- Mono paths --- */
+	if (imx585->mono){
+		/* --- Mono paths --- */
 		if (code == MEDIA_BUS_FMT_Y16_1X16) {
 			if (imx585->clear_HDR){
 				*mode_list = supported_modes;
@@ -711,7 +715,7 @@ static inline void get_mode_table(struct imx585 *imx585, unsigned int code,
 		}
 	}
 	else{
-	    	/* --- Color paths --- */
+		/* --- Color paths --- */
 		switch (code) {
 			/* 16-bit */
 			case MEDIA_BUS_FMT_SRGGB16_1X16:
@@ -720,6 +724,7 @@ static inline void get_mode_table(struct imx585 *imx585, unsigned int code,
 			case MEDIA_BUS_FMT_SBGGR16_1X16:
 				*mode_list = supported_modes;
 				*num_modes = ARRAY_SIZE(supported_modes);
+				break;
 			/* 12-bit */
 			case MEDIA_BUS_FMT_SRGGB12_1X12:
 			case MEDIA_BUS_FMT_SGRBG12_1X12:
@@ -736,6 +741,35 @@ static inline void get_mode_table(struct imx585 *imx585, unsigned int code,
 	}
 	return;
 }
+/* ---------------------------------------------------------------------
+ * Optional IR-cut helper
+ * ------------------------------------------------------------------ */
+
+/* One-byte “command” sent to the IR-cut MCU at imx585->ircut_client   */
+static int imx585_ircut_write(struct imx585 *imx585, u8 cmd)
+{
+        struct i2c_client *client = imx585->ircut_client;
+        int ret;
+
+        /*
+         * Using SMBus is fine here because we only ever ship a single
+         * byte – it hides the start / stop boiler-plate for us.
+         *
+         *   S | client-addr | W | cmd-byte | P
+         */
+        ret = i2c_smbus_write_byte(client, cmd);
+        if (ret < 0)
+                dev_err(&client->dev, "IR-cut write failed (%d)\n", ret);
+
+        return ret;
+}
+
+static int imx585_ircut_set(struct imx585 *imx585, int on)
+{
+        /* Example: 0xA5 = move in, 0x5A = move out */
+        return imx585_ircut_write(imx585, on ? 0x01 : 0x00);
+}
+
 
 /* Read registers up to 2 at a time */
 static int imx585_read_reg(struct imx585 *imx585, u16 reg, u32 len, u32 *val)
@@ -1059,6 +1093,9 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 					    "Failed to write reg 0x%4.4x. error = %d\n",
 					    IMX585_FLIP_WINMODEV, ret);
 		break;
+        case V4L2_CID_BAND_STOP_FILTER:
+                /* should never be called if !has_ircut */
+                return imx585_ircut_set(imx585, ctrl->val);
 	default:
 		dev_info(&client->dev,
 			 "ctrl(id:0x%x,val:0x%x) is not handled\n",
@@ -1089,31 +1126,31 @@ static int imx585_enum_mbus_code(struct v4l2_subdev *sd,
 	if (code->pad == IMAGE_PAD) {
 		if (imx585->mono) {
 			if (imx585->clear_HDR) {
-		                if (code->index > 1)
-		                        return -EINVAL;
-		                code->code = mono_codes[code->index];
-		        } else { /* HDR off: expose Y12 only */
-		                if (code->index)
-		                        return -EINVAL;
-		                code->code = MEDIA_BUS_FMT_Y12_1X12;
-		        }
-		        return 0;
+				if (code->index > 1)
+					return -EINVAL;
+				code->code = mono_codes[code->index];
+			} else { /* HDR off: expose Y12 only */
+				if (code->index)
+					return -EINVAL;
+				code->code = MEDIA_BUS_FMT_Y12_1X12;
+			}
+			return 0;
 		}
 		else {
 			if (imx585->clear_HDR) {
-		        	tbl     = codes_clearhdr;  /* << 16bit + 12bit */
-		        	entries = ARRAY_SIZE(codes_clearhdr) / 4;
-		    	} else {
+				tbl     = codes_clearhdr;  /* << 16bit + 12bit */
+				entries = ARRAY_SIZE(codes_clearhdr) / 4;
+			} else {
 				tbl     = codes_normal;    /* << ONLY 12bit */
 				entries = ARRAY_SIZE(codes_normal) / 4;
 		    }
 		}
 
-            if (code->index >= entries)
-                    return -EINVAL;
+	    if (code->index >= entries)
+		    return -EINVAL;
 
-            code->code = imx585_get_format_code(imx585, tbl[code->index * 4]);
-            return 0;
+	    code->code = imx585_get_format_code(imx585, tbl[code->index * 4]);
+	    return 0;
 	} else {
 		if (code->index > 0)
 			return -EINVAL;
@@ -1271,7 +1308,6 @@ static int imx585_set_pad_format(struct v4l2_subdev *sd,
 	struct v4l2_mbus_framefmt *framefmt;
 	const struct imx585_mode *mode;
 	struct imx585 *imx585 = to_imx585(sd);
-	struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
 
 	if (fmt->pad >= NUM_PADS)
 		return -EINVAL;
@@ -1736,6 +1772,12 @@ static int imx585_init_controls(struct imx585 *imx585)
 	imx585->hflip = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops, V4L2_CID_HFLIP, 0, 1, 1, 0);
 	imx585->vflip = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops, V4L2_CID_VFLIP, 0, 1, 1, 0);
 
+	if (imx585->has_ircut) {
+	        imx585->ircut_ctrl =
+	            v4l2_ctrl_new_std(&imx585->ctrl_handler, &imx585_ctrl_ops,
+	                              V4L2_CID_BAND_STOP_FILTER,
+	                              0, 1, 1, 1);
+	}
 
 	if (ctrl_hdlr->error) {
 		ret = ctrl_hdlr->error;
@@ -1799,7 +1841,7 @@ static void imx585_update_hmax(struct imx585 *imx585)
 		m->default_HMAX = h;
 		m->min_VMAX     = v;
 		m->default_VMAX = v;
-		dev_info(&client->dev, "\tv: %d x h: %d\n", v,h);
+		dev_info(&client->dev, "\tv: %lld x h: %d\n", v,h);
 	}
 
 }
@@ -1868,6 +1910,8 @@ error_out:
 static int imx585_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
+	struct device_node  *np;
+	struct i2c_client   *ic;
 	struct imx585 *imx585;
 	const struct of_device_id *match;
 	int ret, i;
@@ -1889,6 +1933,19 @@ static int imx585_probe(struct i2c_client *client)
 
 	imx585->clear_HDR = of_property_read_bool(dev->of_node, "clearHDR-mode");
 	dev_info(dev, "ClearHDR: %d\n", imx585->clear_HDR);
+
+
+	imx585->has_ircut     = false;
+	imx585->ircut_client  = NULL;
+
+	np = of_parse_phandle(dev->of_node, "ircut-controller", 0);
+	if (np){
+		imx585->ircut_client = of_find_i2c_device_by_node(np);
+		of_node_put(np);
+		imx585->has_ircut    = true;
+		dev_info(dev, "IR-cut controller present at 0x%02x\n", imx585->ircut_client->addr);
+	}
+	
 
 	/* Check the hardware configuration in device tree */
 	if (imx585_check_hwcfg(dev, imx585))
