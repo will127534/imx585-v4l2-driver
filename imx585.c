@@ -1934,25 +1934,6 @@ static int imx585_probe(struct i2c_client *client)
 	imx585->clear_HDR = of_property_read_bool(dev->of_node, "clearHDR-mode");
 	dev_info(dev, "ClearHDR: %d\n", imx585->clear_HDR);
 
-
-	imx585->has_ircut     = false;
-	imx585->ircut_client  = NULL;
-
-	if(of_property_read_bool(dev->of_node, "ircut-mode")){
-		np = of_parse_phandle(dev->of_node, "ircut-controller", 0);
-		if (np){
-			imx585->ircut_client = of_find_i2c_device_by_node(np);
-			of_node_put(np);
-			imx585->has_ircut    = true;
-			dev_info(dev, "IR-cut controller present at 0x%02x\n", imx585->ircut_client->addr);
-		}
-	} else{
-		dev_info(dev, "No IR-cut controller\n");
-	}
-
-
-	
-
 	/* Check the hardware configuration in device tree */
 	if (imx585_check_hwcfg(dev, imx585))
 		return -EINVAL;
@@ -2003,6 +1984,30 @@ static int imx585_probe(struct i2c_client *client)
 	ret = imx585_check_module_exists(imx585);
 	if (ret)
 		goto error_power_off;
+
+
+	imx585->has_ircut     = false;
+	imx585->ircut_client  = NULL;
+
+	if(of_property_read_bool(dev->of_node, "ircut-mode")){
+		np = of_parse_phandle(dev->of_node, "ircut-controller", 0);
+		if (np){
+			imx585->ircut_client = of_find_i2c_device_by_node(np);
+			of_node_put(np);
+			
+			ret = imx585_ircut_write(imx585, 0x01);
+			if (!ret){
+				imx585->has_ircut    = true;
+				dev_info(dev, "IR-cut controller present at 0x%02x\n", imx585->ircut_client->addr);
+			}
+			else{
+				dev_info(dev, "Can not communicate with IR-cut controller, drop the support\n");
+			}
+		}
+	} else{
+		dev_info(dev, "No IR-cut controller\n");
+	}
+
 
 	/* Initialize default format */
 	imx585_set_default_format(imx585);
