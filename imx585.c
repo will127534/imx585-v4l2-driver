@@ -656,6 +656,7 @@ struct imx585 {
 	struct v4l2_ctrl *hflip;
 	struct v4l2_ctrl *vblank;
 	struct v4l2_ctrl *hblank;
+	struct v4l2_ctrl *blacklevel;
 
 	bool          has_ircut;
 	struct v4l2_ctrl *ircut_ctrl;
@@ -1093,9 +1094,20 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 					    "Failed to write reg 0x%4.4x. error = %d\n",
 					    IMX585_FLIP_WINMODEV, ret);
 		break;
+	case V4L2_CID_BRIGHTNESS:
+		dev_info(&client->dev, "V4L2_CID_BRIGHTNESS : %d\n", ctrl->val);
+		u16 blacklevel = ctrl->val;
+		if(blacklevel > 4095) blacklevel = 4095;
+		ret = imx585_write_reg_1byte(imx585, IMX585_REG_BLKLEVEL, blacklevel);
+		if (ret)
+			dev_err_ratelimited(&client->dev,
+					    "Failed to write reg 0x%4.4x. error = %d\n",
+					    IMX585_REG_BLKLEVEL, ret);
 	case V4L2_CID_BAND_STOP_FILTER:
-		/* should never be called if !has_ircut */
-		return imx585_ircut_set(imx585, ctrl->val);
+		if (imx585->has_ircut) {
+		 	imx585_ircut_set(imx585, ctrl->val);
+		}
+		break;
 	default:
 		dev_info(&client->dev,
 			 "ctrl(id:0x%x,val:0x%x) is not handled\n",
@@ -1757,6 +1769,8 @@ static int imx585_init_controls(struct imx585 *imx585)
 					   V4L2_CID_VBLANK, 0, 0xfffff, 1, 0);
 	imx585->hblank = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops,
 					   V4L2_CID_HBLANK, 0, 0xffff, 1, 0);
+	imx585->blacklevel = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops,
+					   V4L2_CID_BRIGHTNESS, 0, 0xffff, 1, IMX585_BLKLEVEL_DEFAULT);
 
 	imx585->exposure = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops,
 					     V4L2_CID_EXPOSURE,
