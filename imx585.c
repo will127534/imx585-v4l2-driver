@@ -672,6 +672,7 @@ struct imx585 {
 	struct v4l2_ctrl *hblank;
 	struct v4l2_ctrl *blacklevel;
 
+	struct v4l2_ctrl *hdr_mode;
 	struct v4l2_ctrl *datasel_th_ctrl;
 	struct v4l2_ctrl *datasel_bk_ctrl;
 	struct v4l2_ctrl *gradcomp_th_ctrl;
@@ -710,6 +711,10 @@ struct imx585 {
 	/* Any extra information related to different compatible sensors */
 	const struct imx585_compatible_data *compatible_data;
 };
+
+
+
+
 
 static inline struct imx585 *to_imx585(struct v4l2_subdev *_sd)
 {
@@ -979,13 +984,85 @@ static int imx585_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	return 0;
 }
 
+static void imx585_set_framing_limits(struct imx585 *imx585)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
+	const struct imx585_mode *mode = imx585->mode;
+	u64 default_hblank, max_hblank;
+	u64 pixel_rate;
+
+	imx585->VMAX = mode->default_VMAX;
+	imx585->HMAX = mode->default_HMAX;
+
+	pixel_rate = (u64)mode->width * IMX585_PIXEL_RATE;
+	do_div(pixel_rate, mode->min_HMAX);
+	__v4l2_ctrl_modify_range(imx585->pixel_rate, pixel_rate, pixel_rate, 1, pixel_rate);
+
+	//int default_hblank = mode->default_HMAX*IMX585_PIXEL_RATE/72000000-IMX585_NATIVE_WIDTH;
+	default_hblank = mode->default_HMAX * pixel_rate;
+	do_div(default_hblank, IMX585_PIXEL_RATE);
+	default_hblank = default_hblank - mode->width;
+
+	max_hblank = IMX585_HMAX_MAX * pixel_rate;
+	do_div(max_hblank, IMX585_PIXEL_RATE);
+	max_hblank = max_hblank - mode->width;
+
+	__v4l2_ctrl_modify_range(imx585->hblank, 0, max_hblank, 1, default_hblank);
+	__v4l2_ctrl_s_ctrl(imx585->hblank, default_hblank);
+
+	/* Update limits and set FPS to default */
+	__v4l2_ctrl_modify_range(imx585->vblank, mode->min_VMAX - mode->height,
+				 IMX585_VMAX_MAX - mode->height,
+				 1, mode->default_VMAX - mode->height);
+	__v4l2_ctrl_s_ctrl(imx585->vblank, mode->default_VMAX - mode->height);
+
+	__v4l2_ctrl_modify_range(imx585->exposure, IMX585_EXPOSURE_MIN,
+			 imx585->VMAX - IMX585_SHR_MIN_CLEARHDR, 1,
+				IMX585_EXPOSURE_DEFAULT);
+
+
+	dev_info(&client->dev, "Setting default HBLANK : %llu, VBLANK : %llu PixelRate: %lld\n",
+		 default_hblank, mode->default_VMAX - mode->height, pixel_rate);
+}
+
+
 static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct imx585 *imx585 = container_of(ctrl->handler, struct imx585, ctrl_handler);
 	struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
 	const struct imx585_mode *mode = imx585->mode;
+	const struct imx585_mode *mode_list;
+	unsigned int code, num_modes;
 
 	int ret = 0;
+	/*
+	 * Applying V4L2 control value that
+	 * doesn't need to be in streaming mode
+	 */
+	switch (ctrl->id) {
+	case V4L2_CID_WIDE_DYNAMIC_RANGE:
+		if (imx585->clear_HDR != ctrl->val) {
+			imx585->clear_HDR = ctrl->val;
+			v4l2_ctrl_activate(imx585->datasel_th_ctrl,  imx585->clear_HDR);
+	        v4l2_ctrl_activate(imx585->datasel_bk_ctrl,  imx585->clear_HDR);
+	        v4l2_ctrl_activate(imx585->gradcomp_th_ctrl, imx585->clear_HDR);
+	        v4l2_ctrl_activate(imx585->gradcomp_exp_ctrl,imx585->clear_HDR);
+	        v4l2_ctrl_activate(imx585->hdr_gain_ctrl,    imx585->clear_HDR);
+			if (imx585->mono)
+				code = imx585_get_format_code(imx585, MEDIA_BUS_FMT_Y12_1X12);
+			else
+				code = imx585_get_format_code(imx585, MEDIA_BUS_FMT_SRGGB12_1X12);
+			get_mode_table(imx585, code, &mode_list, &num_modes);
+			imx585->mode = v4l2_find_nearest_size(mode_list,
+							      num_modes,
+							      width, height,
+							      imx585->mode->width,
+							      imx585->mode->height);
+			imx585_set_framing_limits(imx585);
+
+		}
+		break;
+	}
 
 	/*
 	 * Applying V4L2 control value only happens
@@ -1210,6 +1287,7 @@ static const struct v4l2_ctrl_ops imx585_ctrl_ops = {
 	.s_ctrl = imx585_set_ctrl,
 };
 
+static const u16 hdr_th_def[2] = { 1024, 3072 };
 static const struct v4l2_ctrl_config imx585_cfg_hdr_datasel_th = {
 	.ops = &imx585_ctrl_ops,
 	.id = V4L2_CID_IMX585_HDR_DATASEL_TH,
@@ -1235,6 +1313,7 @@ static const struct v4l2_ctrl_config imx585_cfg_hdr_datasel_bk = {
 	.elem_size = sizeof(u16),
 };
 
+static const u32 grad_th_def[2] = { 1024, 3072 };
 static const struct v4l2_ctrl_config imx585_cfg_hdr_grad_th = {
 	.ops = &imx585_ctrl_ops,
 	.id = V4L2_CID_IMX585_HDR_GRAD_TH,
@@ -1423,46 +1502,6 @@ static int imx585_get_pad_format(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static void imx585_set_framing_limits(struct imx585 *imx585)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
-	const struct imx585_mode *mode = imx585->mode;
-	u64 default_hblank, max_hblank;
-	u64 pixel_rate;
-
-	imx585->VMAX = mode->default_VMAX;
-	imx585->HMAX = mode->default_HMAX;
-
-	pixel_rate = (u64)mode->width * IMX585_PIXEL_RATE;
-	do_div(pixel_rate, mode->min_HMAX);
-	__v4l2_ctrl_modify_range(imx585->pixel_rate, pixel_rate, pixel_rate, 1, pixel_rate);
-
-	//int default_hblank = mode->default_HMAX*IMX585_PIXEL_RATE/72000000-IMX585_NATIVE_WIDTH;
-	default_hblank = mode->default_HMAX * pixel_rate;
-	do_div(default_hblank, IMX585_PIXEL_RATE);
-	default_hblank = default_hblank - mode->width;
-
-	max_hblank = IMX585_HMAX_MAX * pixel_rate;
-	do_div(max_hblank, IMX585_PIXEL_RATE);
-	max_hblank = max_hblank - mode->width;
-
-	__v4l2_ctrl_modify_range(imx585->hblank, 0, max_hblank, 1, default_hblank);
-	__v4l2_ctrl_s_ctrl(imx585->hblank, default_hblank);
-
-	/* Update limits and set FPS to default */
-	__v4l2_ctrl_modify_range(imx585->vblank, mode->min_VMAX - mode->height,
-				 IMX585_VMAX_MAX - mode->height,
-				 1, mode->default_VMAX - mode->height);
-	__v4l2_ctrl_s_ctrl(imx585->vblank, mode->default_VMAX - mode->height);
-
-	__v4l2_ctrl_modify_range(imx585->exposure, IMX585_EXPOSURE_MIN,
-			 imx585->VMAX - IMX585_SHR_MIN_CLEARHDR, 1,
-				IMX585_EXPOSURE_DEFAULT);
-
-
-	dev_info(&client->dev, "Setting default HBLANK : %llu, VBLANK : %llu PixelRate: %lld\n",
-		 default_hblank, mode->default_VMAX - mode->height, pixel_rate);
-}
 
 static int imx585_set_pad_format(struct v4l2_subdev *sd,
 				 struct v4l2_subdev_state *sd_state,
@@ -1689,8 +1728,10 @@ static int imx585_set_stream(struct v4l2_subdev *sd, int enable)
 
 	imx585->streaming = enable;
 
-	/* vflip and hflip cannot change during streaming */
+	/* vflip/hflip and hdr mode cannot change during streaming */
 	__v4l2_ctrl_grab(imx585->vflip, enable);
+	__v4l2_ctrl_grab(imx585->hflip, enable);
+	__v4l2_ctrl_grab(imx585->hdr_mode, enable);
 
 	mutex_unlock(&imx585->mutex);
 
@@ -1945,12 +1986,20 @@ static int imx585_init_controls(struct imx585 *imx585)
 	}
 
 
-
+	imx585->hdr_mode = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops,
+					     V4L2_CID_WIDE_DYNAMIC_RANGE,
+					     0, 1, 1, 0);
 	imx585->datasel_th_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &imx585_cfg_hdr_datasel_th, NULL);
 	imx585->datasel_bk_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &imx585_cfg_hdr_datasel_bk, NULL);
 	imx585->gradcomp_th_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &imx585_cfg_hdr_grad_th, NULL);
     imx585->gradcomp_exp_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &imx585_cfg_hdr_grad_exp, NULL);
 	imx585->hdr_gain_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &imx585_cfg_hdr_gain, NULL);
+
+	v4l2_ctrl_activate(imx585->datasel_th_ctrl,  imx585->clear_HDR);
+	v4l2_ctrl_activate(imx585->datasel_bk_ctrl,  imx585->clear_HDR);
+	v4l2_ctrl_activate(imx585->gradcomp_th_ctrl, imx585->clear_HDR);
+	v4l2_ctrl_activate(imx585->gradcomp_exp_ctrl,imx585->clear_HDR);
+	v4l2_ctrl_activate(imx585->hdr_gain_ctrl,    imx585->clear_HDR);
 
 	if (ctrl_hdlr->error) {
 		ret = ctrl_hdlr->error;
@@ -1966,6 +2015,10 @@ static int imx585_init_controls(struct imx585 *imx585)
 	ret = v4l2_ctrl_new_fwnode_properties(ctrl_hdlr, &imx585_ctrl_ops, &props);
 	if (ret)
 		goto error;
+
+	imx585->hdr_mode->flags |= V4L2_CTRL_FLAG_UPDATE;
+	imx585->hdr_mode->flags |= V4L2_CTRL_FLAG_MODIFY_LAYOUT;
+
 
 	imx585->sd.ctrl_handler = ctrl_hdlr;
 
