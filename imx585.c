@@ -30,15 +30,11 @@
 #define MEDIA_BUS_FMT_SENSOR_DATA       0x7002
 #endif
 
-
 #define V4L2_CID_IMX585_HDR_DATASEL_TH (V4L2_CID_USER_ASPEED_BASE + 0)
 #define V4L2_CID_IMX585_HDR_DATASEL_BK (V4L2_CID_USER_ASPEED_BASE + 1)
 #define V4L2_CID_IMX585_HDR_GRAD_TH    (V4L2_CID_USER_ASPEED_BASE + 2)
 #define V4L2_CID_IMX585_HDR_GRAD_COMP  (V4L2_CID_USER_ASPEED_BASE + 3)
 #define V4L2_CID_IMX585_HDR_GAIN       (V4L2_CID_USER_ASPEED_BASE + 4)
-
-
-
 
 /* Standby or streaming mode */
 #define IMX585_REG_MODE_SELECT          0x3000
@@ -46,6 +42,11 @@
 #define IMX585_MODE_STREAMING           0x00
 #define IMX585_STREAM_DELAY_US          25000
 #define IMX585_STREAM_DELAY_RANGE_US    1000
+
+/* Leader mode and XVS/XHS direction */
+#define IMX585_REG_XMSTA 0x3002
+#define IMX585_REG_XXS_DRV 0x30A6
+#define IMX585_REG_EXTMODE 0x30CE
 
 /* Clk selection */
 #define IMX585_INCK_SEL                 0x3014
@@ -200,6 +201,13 @@ static const struct imx585_inck_cfg imx585_inck_table[] = {
 		{ 72000000, 0x02 },
 		{ 27000000, 0x03 },
 		{ 24000000, 0x04 },
+};
+
+
+static const char * const sync_mode_menu[] = {
+	"Internal Sync Leader Mode",
+	"External Sync Leader Mode",
+	"Follower Mode",
 };
 
 struct imx585_reg {
@@ -469,7 +477,6 @@ struct imx585_reg mode_common_regs[] = {
 	{0x5222, 0x91},// -
 	{0x5224, 0x87},// -
 	{0x5226, 0x82},// -
-	{0x3002, 0x00}, // Master mode start
 };
 
 /* Common Registers for ClearHDR. */
@@ -691,6 +698,18 @@ struct imx585 {
 	bool mono;
 	/* Clear HDR mode */
 	bool clear_HDR;
+	/* Sync Mode*/
+	/* 0 = Internal Sync Leader Mode
+	 * 1 = External Sync Leader Mode
+	 * 2 = Follower Mode
+	 * The datasheet working is very confusing but basically:
+	 * Leader Mode = Sensor using internal clock to drive the sensor
+	 * But with external sync mode you can send a XVS input so the sensor
+	 * will try to align with it.
+	 * For Follower mode it is purely driven by external clock
+	 * In this case you need to drive both XVS and XHS
+	 */
+	u32 sync_mode;
 
 	/* Tracking sensor VMAX/HMAX value */
 	u16 HMAX;
@@ -840,7 +859,7 @@ static int imx585_write_reg_1byte(struct imx585 *imx585, u16 reg, u8 val)
 
 	put_unaligned_be16(reg, buf);
 	buf[2] = val;
-	ret = i2c_master_send(client, buf, 3);
+	ret = i2c_Leader_send(client, buf, 3);
 	if (ret != 3)
 		return ret;
 
@@ -857,7 +876,7 @@ static int imx585_write_reg_2byte(struct imx585 *imx585, u16 reg, u16 val)
 	put_unaligned_be16(reg, buf);
 	buf[2] = val;
 	buf[3] = val >> 8;
-	ret = i2c_master_send(client, buf, 4);
+	ret = i2c_Leader_send(client, buf, 4);
 	if (ret != 4)
 		return ret;
 
@@ -874,7 +893,7 @@ static int imx585_write_reg_3byte(struct imx585 *imx585, u16 reg, u32 val)
 	buf[2]  = val;
 	buf[3]  = val >> 8;
 	buf[4]  = val >> 16;
-	if (i2c_master_send(client, buf, 5) != 5)
+	if (i2c_Leader_send(client, buf, 5) != 5)
 		return -EIO;
 
 	return 0;
@@ -1263,14 +1282,9 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 					    "Failed to write reg 0x%4.4x. error = %d\n",
 					    IMX585_REG_EXP_GAIN, ret);
 		break;
-
-
 	case V4L2_CID_WIDE_DYNAMIC_RANGE:
 		/* Already handled above. */
 		break;
-
-
-
 	default:
 		dev_info(&client->dev,
 			 "ctrl(id:0x%x,val:0x%x) is not handled\n",
@@ -1287,7 +1301,6 @@ static const struct v4l2_ctrl_ops imx585_ctrl_ops = {
 	.s_ctrl = imx585_set_ctrl,
 };
 
-static const u16 hdr_th_def[2] = { 1024, 3072 };
 static const struct v4l2_ctrl_config imx585_cfg_hdr_datasel_th = {
 	.ops = &imx585_ctrl_ops,
 	.id = V4L2_CID_IMX585_HDR_DATASEL_TH,
@@ -1313,7 +1326,6 @@ static const struct v4l2_ctrl_config imx585_cfg_hdr_datasel_bk = {
 	.elem_size = sizeof(u16),
 };
 
-static const u32 grad_th_def[2] = { 1024, 3072 };
 static const struct v4l2_ctrl_config imx585_cfg_hdr_grad_th = {
 	.ops = &imx585_ctrl_ops,
 	.id = V4L2_CID_IMX585_HDR_GRAD_TH,
@@ -1597,6 +1609,10 @@ static int imx585_start_streaming(struct imx585 *imx585)
 		else
 			imx585_write_reg_1byte(imx585, IMX585_BIN_MODE, 0x00);
 
+		if(imx585->sync_mode == 1){ //External Sync Leader Mode
+			dev_info(&client->dev,"External Sync Leader Mode, enable input\n");
+			imx585_write_reg_1byte(imx585, IMX585_REG_XXS_DRV, 1);
+		}
 		imx585->common_regs_written = true;
 		dev_info(&client->dev, "common_regs_written\n");
 	}
@@ -1672,6 +1688,11 @@ static int imx585_start_streaming(struct imx585 *imx585)
 		dev_err(&client->dev, "%s failed to apply user values\n", __func__);
 		return ret;
 	}
+
+	if (imx585->sync_mode <= 1){
+		dev_info(&client->dev,"imx585 Leader mode enabled\n");
+		imx585_write_reg_1byte(imx585, IMX585_REG_XMSTA, 0x00);
+    }
 
 	/* Set stream on register */
 	ret = imx585_write_reg_1byte(imx585, IMX585_REG_MODE_SELECT, IMX585_MODE_STREAMING);
@@ -2140,6 +2161,7 @@ static int imx585_probe(struct i2c_client *client)
 	struct imx585 *imx585;
 	const struct of_device_id *match;
 	int ret, i;
+	u32 sync_mode;
 
 	imx585 = devm_kzalloc(&client->dev, sizeof(*imx585), GFP_KERNEL);
 	if (!imx585)
@@ -2153,11 +2175,29 @@ static int imx585_probe(struct i2c_client *client)
 	imx585->compatible_data =
 		(const struct imx585_compatible_data *)match->data;
 
+	dev_info(dev, "Reading dtoverlay config:\n");
 	imx585->mono = of_property_read_bool(dev->of_node, "mono-mode");
-	dev_info(dev, "Mono: %d\n", imx585->mono);
-
+	if(imx585->mono){
+		dev_info(dev, "Mono Mode Selected, make sure you have the correct sensor variant\n");
+	}
+	
 	imx585->clear_HDR = of_property_read_bool(dev->of_node, "clearHDR-mode");
 	dev_info(dev, "ClearHDR: %d\n", imx585->clear_HDR);
+
+	imx585->sync_mode = 0;
+	ret = of_property_read_u32(dev->of_node, "sync-mode", &sync_mode);
+    if (!ret) {
+            if (sync_mode > 2) {
+                    dev_warn(dev, "sync-mode out of range, using 0\n");
+                    sync_mode = 0;
+            }
+            imx585->sync_mode = sync_mode;
+    } else if (ret != -EINVAL) {          /* property present but bad */
+            dev_err(dev, "sync-mode malformed (%pe)\n",
+                    ERR_PTR(ret));
+            return ret;
+    }
+    dev_info(dev, "Sync Mode: %s\n", sync_mode_menu[imx585->sync_mode]);
 
 	/* Check the hardware configuration in device tree */
 	if (imx585_check_hwcfg(dev, imx585))

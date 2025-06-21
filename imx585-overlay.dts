@@ -49,6 +49,7 @@
 
 				rotation = <0>;
 				orientation = <0>;
+				sync-mode = <0>;
 
 				VANA-supply = <&cam1_reg>;	/* 3.3v */
 				VDIG-supply = <&cam_dummy_reg>;	/* 1.1v */
@@ -129,5 +130,6 @@
         ircut        = <&ircut_node>,"status=okay",
                        <&cam_node>,"ircut-mode:0=1";
         ircut_addr   = <&ircut_node>,"reg:0";
+        sync-mode = <&cam_node>,"sync-mode:0";
 	};
 };
