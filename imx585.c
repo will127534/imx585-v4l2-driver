@@ -64,6 +64,7 @@
 /* VMAX internal VBLANK*/
 #define IMX585_REG_VMAX                 0x3028
 #define IMX585_VMAX_MAX                 0xfffff
+#define IMX585_VMAX_DEFAULT             2250
 
 /* HMAX internal HBLANK*/
 #define IMX585_REG_HMAX                 0x302C
@@ -95,7 +96,6 @@
 
 /* HDR Gain Adder */
 #define IMX585_REG_EXP_GAIN             0x3081
-
 
 /* Black level control */
 #define IMX585_REG_BLKLEVEL             0x30DC
@@ -553,9 +553,9 @@ struct imx585_mode supported_modes[] = {
 		.height = 1090,
 		.hmax_div = 1,
 		.min_HMAX = 366,
-		.min_VMAX = 2250,
+		.min_VMAX = IMX585_VMAX_DEFAULT,
 		.default_HMAX = 366,
-		.default_VMAX = 2250,
+		.default_VMAX = IMX585_VMAX_DEFAULT,
 		.crop = {
 			.left = IMX585_PIXEL_ARRAY_LEFT,
 			.top = IMX585_PIXEL_ARRAY_TOP,
@@ -572,9 +572,9 @@ struct imx585_mode supported_modes[] = {
 		.width = 3856,
 		.height = 2180,
 		.min_HMAX = 550,
-		.min_VMAX = 2250,
+		.min_VMAX = IMX585_VMAX_DEFAULT,
 		.default_HMAX = 550,
-		.default_VMAX = 2250,
+		.default_VMAX = IMX585_VMAX_DEFAULT,
 		.hmax_div = 1,
 		.crop = {
 			.left = IMX585_PIXEL_ARRAY_LEFT,
@@ -1044,6 +1044,34 @@ static void imx585_set_framing_limits(struct imx585 *imx585)
 		 default_hblank, mode->default_VMAX - mode->height, pixel_rate);
 }
 
+static void imx585_update_hmax(struct imx585 *imx585)
+{
+
+	struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
+
+	const u32 base_4lane = HMAX_table_4lane_4K[imx585->link_freq_idx];
+	const u32 lane_scale = (imx585->lane_count == 2) ? 2 : 1;
+	const u32 factor     = base_4lane * lane_scale;
+	const u32 hdr_factor = (imx585->clear_HDR) ? 2 : 1;
+	dev_info(&client->dev, "Upadte minimum HMAX\n");
+	dev_info(&client->dev, "\tbase_4lane: %d\n", base_4lane);
+	dev_info(&client->dev, "\tlane_scale: %d\n", lane_scale);
+	dev_info(&client->dev, "\tfactor: %d\n", factor);
+	dev_info(&client->dev, "\thdr_factor: %d\n", hdr_factor);
+
+	for (unsigned int i = 0; i < ARRAY_SIZE(supported_modes); ++i) {
+		struct imx585_mode *m = &supported_modes[i];
+		u32 h = factor / m->hmax_div;        /* one divide per mode */
+		u64 v = IMX585_VMAX_DEFAULT * hdr_factor;
+		m->min_HMAX     = h;
+		m->default_HMAX = h;
+		m->min_VMAX     = v;
+		m->default_VMAX = v;
+		dev_info(&client->dev, "\tv: %lld x h: %d\n", v,h);
+	}
+
+}
+
 
 static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 {
@@ -1077,8 +1105,8 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 							      width, height,
 							      imx585->mode->width,
 							      imx585->mode->height);
+			imx585_update_hmax(imx585); //ClearHDR mode will double the VMAX
 			imx585_set_framing_limits(imx585);
-
 		}
 		break;
 	}
@@ -1223,6 +1251,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_BAND_STOP_FILTER:
 		if (imx585->has_ircut) {
+			dev_info(&client->dev, "V4L2_CID_BAND_STOP_FILTER : %d\n", ctrl->val);
 		 	imx585_ircut_set(imx585, ctrl->val);
 		}
 		break;
@@ -1238,6 +1267,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 			dev_err_ratelimited(&client->dev,
 					    "Failed to write reg 0x%4.4x. error = %d\n",
 					    IMX585_REG_EXP_TH_L, ret);
+		dev_info(&client->dev, "V4L2_CID_IMX585_HDR_DATASEL_TH : %d, %d\n",th[0],th[1]);
 		break;
 		}
 	case V4L2_CID_IMX585_HDR_DATASEL_BK:
@@ -1259,6 +1289,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 			dev_err_ratelimited(&client->dev,
 					    "Failed to write reg 0x%4.4x. error = %d\n",
 					    IMX585_REG_CCMP2_EXP, ret);
+		dev_info(&client->dev, "V4L2_CID_IMX585_HDR_GRAD_TH : %d, %d\n",thr[0],thr[1]);
 		break;
 		}
 	case V4L2_CID_IMX585_HDR_GRAD_COMP:{
@@ -1273,6 +1304,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 			dev_err_ratelimited(&client->dev,
 					    "Failed to write reg 0x%4.4x. error = %d\n",
 					    IMX585_REG_ACMP2_EXP, ret);
+		dev_info(&client->dev, "V4L2_CID_IMX585_HDR_GRAD_COMP : %d, %d\n",exp[0],exp[1]);
 		break;
 		}
 	case V4L2_CID_IMX585_HDR_GAIN:
@@ -2066,32 +2098,6 @@ static const struct of_device_id imx585_dt_ids[] = {
 	{ /* sentinel */ }
 };
 
-static void imx585_update_hmax(struct imx585 *imx585)
-{
-
-	struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
-
-	const u32 base_4lane = HMAX_table_4lane_4K[imx585->link_freq_idx];
-	const u32 lane_scale = (imx585->lane_count == 2) ? 2 : 1;
-	const u32 factor     = base_4lane * lane_scale;
-	const u32 hdr_factor = (imx585->clear_HDR) ? 2 : 1;
-	dev_info(&client->dev, "Upadte minimum HMAX\n");
-	dev_info(&client->dev, "\tbase_4lane: %d\n", base_4lane);
-	dev_info(&client->dev, "\tlane_scale: %d\n", lane_scale);
-	dev_info(&client->dev, "\tfactor: %d\n", factor);
-
-	for (unsigned int i = 0; i < ARRAY_SIZE(supported_modes); ++i) {
-		struct imx585_mode *m = &supported_modes[i];
-		u32 h = factor / m->hmax_div;        /* one divide per mode */
-		u64 v = m->min_VMAX * hdr_factor;
-		m->min_HMAX     = h;
-		m->default_HMAX = h;
-		m->min_VMAX     = v;
-		m->default_VMAX = v;
-		dev_info(&client->dev, "\tv: %lld x h: %d\n", v,h);
-	}
-
-}
 
 static int imx585_check_hwcfg(struct device *dev, struct imx585 *imx585)
 {

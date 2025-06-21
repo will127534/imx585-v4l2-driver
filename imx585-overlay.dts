@@ -118,6 +118,7 @@
 		2lane = <0>, "-0+1-2+3";
 		rotation = <&cam_node>,"rotation:0";
 		orientation = <&cam_node>,"orientation:0";
+		sync-mode = <&cam_node>,"sync-mode:0";
 		media-controller = <&csi>,"brcm,media-controller?";
 		cam0 = <&i2c_frag>, "target:0=",<&i2c_csi_dsi0>,
 		       <&csi_frag>, "target:0=",<&csi0>,
@@ -130,6 +131,5 @@
         ircut        = <&ircut_node>,"status=okay",
                        <&cam_node>,"ircut-mode:0=1";
         ircut_addr   = <&ircut_node>,"reg:0";
-        sync-mode = <&cam_node>,"sync-mode:0";
 	};
 };
