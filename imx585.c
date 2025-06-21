@@ -859,7 +859,7 @@ static int imx585_write_reg_1byte(struct imx585 *imx585, u16 reg, u8 val)
 
 	put_unaligned_be16(reg, buf);
 	buf[2] = val;
-	ret = i2c_Leader_send(client, buf, 3);
+	ret = i2c_master_send(client, buf, 3);
 	if (ret != 3)
 		return ret;
 
@@ -876,7 +876,7 @@ static int imx585_write_reg_2byte(struct imx585 *imx585, u16 reg, u16 val)
 	put_unaligned_be16(reg, buf);
 	buf[2] = val;
 	buf[3] = val >> 8;
-	ret = i2c_Leader_send(client, buf, 4);
+	ret = i2c_master_send(client, buf, 4);
 	if (ret != 4)
 		return ret;
 
@@ -893,7 +893,7 @@ static int imx585_write_reg_3byte(struct imx585 *imx585, u16 reg, u32 val)
 	buf[2]  = val;
 	buf[3]  = val >> 8;
 	buf[4]  = val >> 16;
-	if (i2c_Leader_send(client, buf, 5) != 5)
+	if (i2c_master_send(client, buf, 5) != 5)
 		return -EIO;
 
 	return 0;
