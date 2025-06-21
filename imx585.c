@@ -30,6 +30,16 @@
 #define MEDIA_BUS_FMT_SENSOR_DATA       0x7002
 #endif
 
+
+#define V4L2_CID_IMX585_HDR_DATASEL_TH (V4L2_CID_USER_ASPEED_BASE + 0)
+#define V4L2_CID_IMX585_HDR_DATASEL_BK (V4L2_CID_USER_ASPEED_BASE + 1)
+#define V4L2_CID_IMX585_HDR_GRAD_TH    (V4L2_CID_USER_ASPEED_BASE + 2)
+#define V4L2_CID_IMX585_HDR_GRAD_COMP  (V4L2_CID_USER_ASPEED_BASE + 3)
+#define V4L2_CID_IMX585_HDR_GAIN       (V4L2_CID_USER_ASPEED_BASE + 4)
+
+
+
+
 /* Standby or streaming mode */
 #define IMX585_REG_MODE_SELECT          0x3000
 #define IMX585_MODE_STANDBY             0x01
@@ -81,6 +91,10 @@
 #define IMX585_REG_CCMP2_EXP            0x36E4
 #define IMX585_REG_ACMP1_EXP            0x36EE
 #define IMX585_REG_ACMP2_EXP            0x36EC
+
+/* HDR Gain Adder */
+#define IMX585_REG_EXP_GAIN             0x3081
+
 
 /* Black level control */
 #define IMX585_REG_BLKLEVEL             0x30DC
@@ -658,6 +672,13 @@ struct imx585 {
 	struct v4l2_ctrl *hblank;
 	struct v4l2_ctrl *blacklevel;
 
+	struct v4l2_ctrl *datasel_th_ctrl;
+	struct v4l2_ctrl *datasel_bk_ctrl;
+	struct v4l2_ctrl *gradcomp_th_ctrl;
+	struct v4l2_ctrl *gradcomp_exp_ctrl;
+	struct v4l2_ctrl *hdr_gain_ctrl;
+
+
 	bool          has_ircut;
 	struct v4l2_ctrl *ircut_ctrl;
 	struct i2c_client  *ircut_client; 
@@ -1103,11 +1124,76 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 			dev_err_ratelimited(&client->dev,
 					    "Failed to write reg 0x%4.4x. error = %d\n",
 					    IMX585_REG_BLKLEVEL, ret);
+		break;
 	case V4L2_CID_BAND_STOP_FILTER:
 		if (imx585->has_ircut) {
 		 	imx585_ircut_set(imx585, ctrl->val);
 		}
 		break;
+	case V4L2_CID_IMX585_HDR_DATASEL_TH:{
+		const u16 *th = (const u16 *)ctrl->p_new.p;
+		ret = imx585_write_reg_2byte(imx585, IMX585_REG_EXP_TH_H, th[0]);
+		if (ret)
+			dev_err_ratelimited(&client->dev,
+					    "Failed to write reg 0x%4.4x. error = %d\n",
+					    IMX585_REG_EXP_TH_H, ret);
+		ret = imx585_write_reg_2byte(imx585, IMX585_REG_EXP_TH_L, th[1]);
+		if (ret)
+			dev_err_ratelimited(&client->dev,
+					    "Failed to write reg 0x%4.4x. error = %d\n",
+					    IMX585_REG_EXP_TH_L, ret);
+		break;
+		}
+	case V4L2_CID_IMX585_HDR_DATASEL_BK:
+		ret = imx585_write_reg_1byte(imx585, IMX585_REG_EXP_BK, ctrl->val);
+		if (ret)
+			dev_err_ratelimited(&client->dev,
+					    "Failed to write reg 0x%4.4x. error = %d\n",
+					    IMX585_REG_EXP_BK, ret);
+		break;
+	case V4L2_CID_IMX585_HDR_GRAD_TH:{
+		const u32 *thr = (const u32 *)ctrl->p_new.p; 
+		ret = imx585_write_reg_3byte(imx585, IMX585_REG_CCMP1_EXP, thr[0]);
+		if (ret)
+			dev_err_ratelimited(&client->dev,
+					    "Failed to write reg 0x%4.4x. error = %d\n",
+					    IMX585_REG_CCMP1_EXP, ret);
+		ret = imx585_write_reg_3byte(imx585, IMX585_REG_CCMP2_EXP, thr[1]);
+		if (ret)
+			dev_err_ratelimited(&client->dev,
+					    "Failed to write reg 0x%4.4x. error = %d\n",
+					    IMX585_REG_CCMP2_EXP, ret);
+		break;
+		}
+	case V4L2_CID_IMX585_HDR_GRAD_COMP:{
+		const u8 *exp = (const u8 *)ctrl->p_new.p; 
+		ret = imx585_write_reg_1byte(imx585, IMX585_REG_ACMP1_EXP, exp[0]);
+		if (ret)
+			dev_err_ratelimited(&client->dev,
+					    "Failed to write reg 0x%4.4x. error = %d\n",
+					    IMX585_REG_ACMP1_EXP, ret);
+		ret = imx585_write_reg_1byte(imx585, IMX585_REG_ACMP2_EXP, exp[1]);
+		if (ret)
+			dev_err_ratelimited(&client->dev,
+					    "Failed to write reg 0x%4.4x. error = %d\n",
+					    IMX585_REG_ACMP2_EXP, ret);
+		break;
+		}
+	case V4L2_CID_IMX585_HDR_GAIN:
+		ret = imx585_write_reg_1byte(imx585, IMX585_REG_EXP_GAIN, ctrl->val);
+		if (ret)
+			dev_err_ratelimited(&client->dev,
+					    "Failed to write reg 0x%4.4x. error = %d\n",
+					    IMX585_REG_EXP_GAIN, ret);
+		break;
+
+
+	case V4L2_CID_WIDE_DYNAMIC_RANGE:
+		/* Already handled above. */
+		break;
+
+
+
 	default:
 		dev_info(&client->dev,
 			 "ctrl(id:0x%x,val:0x%x) is not handled\n",
@@ -1123,6 +1209,71 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 static const struct v4l2_ctrl_ops imx585_ctrl_ops = {
 	.s_ctrl = imx585_set_ctrl,
 };
+
+static const struct v4l2_ctrl_config imx585_cfg_hdr_datasel_th = {
+	.ops = &imx585_ctrl_ops,
+	.id = V4L2_CID_IMX585_HDR_DATASEL_TH,
+	.name = "HDR Data selection Threshold",
+	.type = V4L2_CTRL_TYPE_U16,
+	.min = 0,
+	.max = 0x0FFF,
+	.step = 1,
+	.def = 0,
+	.dims = { 2 },
+	.elem_size = sizeof(u16),
+};
+
+static const struct v4l2_ctrl_config imx585_cfg_hdr_datasel_bk = {
+	.ops = &imx585_ctrl_ops,
+	.id = V4L2_CID_IMX585_HDR_DATASEL_BK,
+	.name = "HDR Data Blending Mode",
+	.type = V4L2_CTRL_TYPE_U8,
+	.min = 0,
+	.max = 7,
+	.step = 1,
+	.def = 0,
+	.elem_size = sizeof(u16),
+};
+
+static const struct v4l2_ctrl_config imx585_cfg_hdr_grad_th = {
+	.ops = &imx585_ctrl_ops,
+	.id = V4L2_CID_IMX585_HDR_GRAD_TH,
+	.name = "Gradiant Compression Threshold",
+	.type = V4L2_CTRL_TYPE_U32,
+	.min = 0,
+	.max = 0x1FFFF,
+	.step = 1,
+	.def = 0,
+	.dims = { 2 },
+	.elem_size = sizeof(u32),
+};
+
+static const struct v4l2_ctrl_config imx585_cfg_hdr_grad_exp = {
+	.ops = &imx585_ctrl_ops,
+	.id = V4L2_CID_IMX585_HDR_GRAD_COMP,
+	.name = "Gradiant Compression Ratio",
+	.type = V4L2_CTRL_TYPE_U8,
+	.min = 0,
+	.max = 11,
+	.step = 1,
+	.def = 0,
+	.dims = { 2 },
+	.elem_size = sizeof(u8),
+};
+
+static const struct v4l2_ctrl_config imx585_cfg_hdr_gain = {
+	.ops = &imx585_ctrl_ops,
+	.id = V4L2_CID_IMX585_HDR_GAIN,
+	.name = "HDR Gain Adder",
+	.type = V4L2_CTRL_TYPE_U8,
+	.min = 0,
+	.max = 5,
+	.step = 1,
+	.def = 0,
+	.elem_size = sizeof(u8),
+};
+
+
 
 static int imx585_enum_mbus_code(struct v4l2_subdev *sd,
 				 struct v4l2_subdev_state *sd_state,
@@ -1739,7 +1890,7 @@ static int imx585_init_controls(struct imx585 *imx585)
 	int ret;
 
 	ctrl_hdlr = &imx585->ctrl_handler;
-	ret = v4l2_ctrl_handler_init(ctrl_hdlr, 16);
+	ret = v4l2_ctrl_handler_init(ctrl_hdlr, 32);
 	if (ret)
 		return ret;
 
@@ -1792,6 +1943,14 @@ static int imx585_init_controls(struct imx585 *imx585)
 				      V4L2_CID_BAND_STOP_FILTER,
 				      0, 1, 1, 1);
 	}
+
+
+
+	imx585->datasel_th_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &imx585_cfg_hdr_datasel_th, NULL);
+	imx585->datasel_bk_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &imx585_cfg_hdr_datasel_bk, NULL);
+	imx585->gradcomp_th_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &imx585_cfg_hdr_grad_th, NULL);
+    imx585->gradcomp_exp_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &imx585_cfg_hdr_grad_exp, NULL);
+	imx585->hdr_gain_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &imx585_cfg_hdr_gain, NULL);
 
 	if (ctrl_hdlr->error) {
 		ret = ctrl_hdlr->error;
@@ -1925,7 +2084,6 @@ static int imx585_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
 	struct device_node  *np;
-	struct i2c_client   *ic;
 	struct imx585 *imx585;
 	const struct of_device_id *match;
 	int ret, i;
@@ -2034,7 +2192,7 @@ static int imx585_probe(struct i2c_client *client)
 	/* This needs the pm runtime to be registered. */
 	ret = imx585_init_controls(imx585);
 	if (ret)
-		goto error_power_off;
+		goto error_pm_runtime;
 
 	/* Initialize subdev */
 	imx585->sd.internal_ops = &imx585_internal_ops;
@@ -2066,9 +2224,11 @@ error_media_entity:
 error_handler_free:
 	imx585_free_controls(imx585);
 
-error_power_off:
+error_pm_runtime:
 	pm_runtime_disable(&client->dev);
 	pm_runtime_set_suspended(&client->dev);
+
+error_power_off:
 	imx585_power_off(&client->dev);
 
 	return ret;
