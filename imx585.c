@@ -1272,6 +1272,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		}
 	case V4L2_CID_IMX585_HDR_DATASEL_BK:
 		ret = imx585_write_reg_1byte(imx585, IMX585_REG_EXP_BK, ctrl->val);
+		dev_info(&client->dev, "V4L2_CID_IMX585_HDR_DATASEL_BK : %d\n",ctrl->val);
 		if (ret)
 			dev_err_ratelimited(&client->dev,
 					    "Failed to write reg 0x%4.4x. error = %d\n",
@@ -1309,6 +1310,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		}
 	case V4L2_CID_IMX585_HDR_GAIN:
 		ret = imx585_write_reg_1byte(imx585, IMX585_REG_EXP_GAIN, ctrl->val);
+		dev_info(&client->dev, "IMX585_REG_EXP_GAIN : %d\n",ctrl->val);
 		if (ret)
 			dev_err_ratelimited(&client->dev,
 					    "Failed to write reg 0x%4.4x. error = %d\n",
@@ -1350,12 +1352,11 @@ static const struct v4l2_ctrl_config imx585_cfg_hdr_datasel_bk = {
 	.ops = &imx585_ctrl_ops,
 	.id = V4L2_CID_IMX585_HDR_DATASEL_BK,
 	.name = "HDR Data Blending Mode",
-	.type = V4L2_CTRL_TYPE_U8,
+	.type = V4L2_CTRL_TYPE_INTEGER,
 	.min = 0,
 	.max = 7,
 	.step = 1,
 	.def = 0,
-	.elem_size = sizeof(u16),
 };
 
 static const struct v4l2_ctrl_config imx585_cfg_hdr_grad_th = {
@@ -1388,12 +1389,11 @@ static const struct v4l2_ctrl_config imx585_cfg_hdr_gain = {
 	.ops = &imx585_ctrl_ops,
 	.id = V4L2_CID_IMX585_HDR_GAIN,
 	.name = "HDR Gain Adder",
-	.type = V4L2_CTRL_TYPE_U8,
+	.type = V4L2_CTRL_TYPE_INTEGER,
 	.min = 0,
 	.max = 5,
 	.step = 1,
-	.def = 0,
-	.elem_size = sizeof(u8),
+	.def = 2,
 };
 
 
