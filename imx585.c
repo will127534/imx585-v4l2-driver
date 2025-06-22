@@ -44,9 +44,16 @@
 #define IMX585_STREAM_DELAY_RANGE_US    1000
 
 /* Leader mode and XVS/XHS direction */
-#define IMX585_REG_XMSTA 0x3002
-#define IMX585_REG_XXS_DRV 0x30A6
-#define IMX585_REG_EXTMODE 0x30CE
+#define IMX585_REG_XMSTA     0x3002
+#define IMX585_REG_XXS_DRV   0x30A6
+#define IMX585_REG_EXTMODE   0x30CE
+#define IMX585_REG_XXS_OUTSEL 0x30A4
+
+/*XVS pulse length, 2^n H with n=0~3*/
+#define IMX585_REG_XVSLNG    0x30CC
+/*XHS pulse length, 16*(2^n) Clock with n=0~3*/
+#define IMX585_REG_XHSLNG    0x30CD
+
 
 /* Clk selection */
 #define IMX585_INCK_SEL                 0x3014
@@ -114,10 +121,6 @@
 #define IMX585_ANA_GAIN_STEP            1
 #define IMX585_ANA_GAIN_DEFAULT         0
 
-
-#define IMX585_ANA_GAIN_HCG_LEVEL       51 // = 15.3db / 0.3db
-#define IMX585_ANA_GAIN_HCG_THRESHOLD   (IMX585_ANA_GAIN_HCG_LEVEL + 29)
-#define IMX585_ANA_GAIN_HCG_MIN         34
 
 /* Flip */
 #define IMX585_FLIP_WINMODEH            0x3020
@@ -746,7 +749,7 @@ struct imx585 {
 	/* 0 = Internal Sync Leader Mode
 	 * 1 = External Sync Leader Mode
 	 * 2 = Follower Mode
-	 * The datasheet working is very confusing but basically:
+	 * The datasheet wording is very confusing but basically:
 	 * Leader Mode = Sensor using internal clock to drive the sensor
 	 * But with external sync mode you can send a XVS input so the sensor
 	 * will try to align with it.
@@ -841,12 +844,6 @@ static int imx585_ircut_write(struct imx585 *imx585, u8 cmd)
 	struct i2c_client *client = imx585->ircut_client;
 	int ret;
 
-	/*
-	 * Using SMBus is fine here because we only ever ship a single
-	 * byte – it hides the start / stop boiler-plate for us.
-	 *
-	 *   S | client-addr | W | cmd-byte | P
-	 */
 	ret = i2c_smbus_write_byte(client, cmd);
 	if (ret < 0)
 		dev_err(&client->dev, "IR-cut write failed (%d)\n", ret);
@@ -856,7 +853,6 @@ static int imx585_ircut_write(struct imx585 *imx585, u8 cmd)
 
 static int imx585_ircut_set(struct imx585 *imx585, int on)
 {
-	/* Example: 0xA5 = move in, 0x5A = move out */
 	return imx585_ircut_write(imx585, on ? 0x01 : 0x00);
 }
 
@@ -1730,8 +1726,23 @@ static int imx585_start_streaming(struct imx585 *imx585)
 			imx585_write_reg_1byte(imx585, IMX585_BIN_MODE, 0x00);
 
 		if(imx585->sync_mode == 1){ //External Sync Leader Mode
-			dev_info(&client->dev,"External Sync Leader Mode, enable input\n");
-			imx585_write_reg_1byte(imx585, IMX585_REG_XXS_DRV, 1);
+			dev_info(&client->dev,"External Sync Leader Mode, enable XVS input\n");
+			imx585_write_reg_1byte(imx585, IMX585_REG_EXTMODE, 0x01);
+			// Enable XHS output, but XVS is input
+			imx585_write_reg_1byte(imx585, IMX585_REG_XXS_DRV, 0x03);
+			// Disable XVS OUT
+			imx585_write_reg_1byte(imx585, IMX585_REG_XXS_OUTSEL, 0x08);
+		} else if(imx585->sync_mode == 0){ //Internal Sync Leader Mode
+			dev_info(&client->dev,"Internal Sync Leader Mode, enable output\n");
+			imx585_write_reg_1byte(imx585, IMX585_REG_EXTMODE, 0x00);
+			// Enable XHS and XVS output
+			imx585_write_reg_1byte(imx585, IMX585_REG_XXS_DRV, 0x00);
+			imx585_write_reg_1byte(imx585, IMX585_REG_XXS_OUTSEL, 0x0A);
+		} else{
+			dev_info(&client->dev,"Follower Mode, enable XVS/XHS input\n");
+			//For follower mode, switch both of them to input
+			imx585_write_reg_1byte(imx585, IMX585_REG_XXS_DRV, 0x0F);
+			imx585_write_reg_1byte(imx585, IMX585_REG_XXS_OUTSEL, 0x00);
 		}
 		imx585->common_regs_written = true;
 		dev_info(&client->dev, "common_regs_written\n");
