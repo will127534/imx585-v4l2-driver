@@ -30,11 +30,12 @@
 #define MEDIA_BUS_FMT_SENSOR_DATA       0x7002
 #endif
 
-#define V4L2_CID_IMX585_HDR_DATASEL_TH (V4L2_CID_USER_ASPEED_BASE + 0)
-#define V4L2_CID_IMX585_HDR_DATASEL_BK (V4L2_CID_USER_ASPEED_BASE + 1)
-#define V4L2_CID_IMX585_HDR_GRAD_TH    (V4L2_CID_USER_ASPEED_BASE + 2)
-#define V4L2_CID_IMX585_HDR_GRAD_COMP  (V4L2_CID_USER_ASPEED_BASE + 3)
-#define V4L2_CID_IMX585_HDR_GAIN       (V4L2_CID_USER_ASPEED_BASE + 4)
+#define V4L2_CID_IMX585_HDR_DATASEL_TH   (V4L2_CID_USER_ASPEED_BASE + 0)
+#define V4L2_CID_IMX585_HDR_DATASEL_BK   (V4L2_CID_USER_ASPEED_BASE + 1)
+#define V4L2_CID_IMX585_HDR_GRAD_TH      (V4L2_CID_USER_ASPEED_BASE + 2)
+#define V4L2_CID_IMX585_HDR_GRAD_COMP_L  (V4L2_CID_USER_ASPEED_BASE + 3)
+#define V4L2_CID_IMX585_HDR_GRAD_COMP_H  (V4L2_CID_USER_ASPEED_BASE + 4)
+#define V4L2_CID_IMX585_HDR_GAIN         (V4L2_CID_USER_ASPEED_BASE + 5)
 
 /* Standby or streaming mode */
 #define IMX585_REG_MODE_SELECT          0x3000
@@ -201,6 +202,45 @@ static const struct imx585_inck_cfg imx585_inck_table[] = {
 		{ 72000000, 0x02 },
 		{ 27000000, 0x03 },
 		{ 24000000, 0x04 },
+};
+
+static const char * const hdr_gain_adder_menu[] = {
+	"+0dB",
+	"+6dB",
+	"+12dB",
+	"+18dB",
+	"+24dB",
+	"+29.1dB",
+};
+
+/*Honestly I don't know why there are two 50% 50% blend
+ * but it is in the datasheet
+ */
+static const char * const hdr_data_blender_menu[] = {
+	"HG 1/2, LG 1/2",
+	"HG 3/4, LG 1/4",
+	"HG 1/2, LG 1/2",
+	"HG 7/8, LG 1/8",
+	"HG 15/16, LG 1/16",
+	"2nd HG 1/2, LG 1/2",  
+	"HG 1/16, LG 15/16",
+	"HG 1/8, LG 7/8",
+	"HG 1/4, LG 3/4",
+};
+
+static const char * const grad_compression_slope_menu[] = {
+	"1/1",
+	"1/2",
+	"1/4",
+	"1/8",
+	"1/16",
+	"1/32",
+	"1/64",
+	"1/128",
+	"1/256",
+	"1/512",
+	"1/1024",
+	"1/2048",
 };
 
 
@@ -682,8 +722,9 @@ struct imx585 {
 	struct v4l2_ctrl *hdr_mode;
 	struct v4l2_ctrl *datasel_th_ctrl;
 	struct v4l2_ctrl *datasel_bk_ctrl;
-	struct v4l2_ctrl *gradcomp_th_ctrl;
-	struct v4l2_ctrl *gradcomp_exp_ctrl;
+	struct v4l2_ctrl *gdc_th_ctrl;
+	struct v4l2_ctrl *gdc_exp_ctrl_l;
+	struct v4l2_ctrl *gdc_exp_ctrl_h;
 	struct v4l2_ctrl *hdr_gain_ctrl;
 
 
@@ -1092,8 +1133,9 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 			imx585->clear_HDR = ctrl->val;
 			v4l2_ctrl_activate(imx585->datasel_th_ctrl,  imx585->clear_HDR);
 	        v4l2_ctrl_activate(imx585->datasel_bk_ctrl,  imx585->clear_HDR);
-	        v4l2_ctrl_activate(imx585->gradcomp_th_ctrl, imx585->clear_HDR);
-	        v4l2_ctrl_activate(imx585->gradcomp_exp_ctrl,imx585->clear_HDR);
+	        v4l2_ctrl_activate(imx585->gdc_th_ctrl,      imx585->clear_HDR);
+	        v4l2_ctrl_activate(imx585->gdc_exp_ctrl_h,   imx585->clear_HDR);
+	        v4l2_ctrl_activate(imx585->gdc_exp_ctrl_l,   imx585->clear_HDR);
 	        v4l2_ctrl_activate(imx585->hdr_gain_ctrl,    imx585->clear_HDR);
 			if (imx585->mono)
 				code = imx585_get_format_code(imx585, MEDIA_BUS_FMT_Y12_1X12);
@@ -1293,19 +1335,22 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		dev_info(&client->dev, "V4L2_CID_IMX585_HDR_GRAD_TH : %d, %d\n",thr[0],thr[1]);
 		break;
 		}
-	case V4L2_CID_IMX585_HDR_GRAD_COMP:{
-		const u8 *exp = (const u8 *)ctrl->p_new.p; 
-		ret = imx585_write_reg_1byte(imx585, IMX585_REG_ACMP1_EXP, exp[0]);
+	case V4L2_CID_IMX585_HDR_GRAD_COMP_L:{
+		ret = imx585_write_reg_1byte(imx585, IMX585_REG_ACMP1_EXP, ctrl->val);
 		if (ret)
 			dev_err_ratelimited(&client->dev,
 					    "Failed to write reg 0x%4.4x. error = %d\n",
 					    IMX585_REG_ACMP1_EXP, ret);
-		ret = imx585_write_reg_1byte(imx585, IMX585_REG_ACMP2_EXP, exp[1]);
+		dev_info(&client->dev, "V4L2_CID_IMX585_HDR_GRAD_COMP_L : %d\n", ctrl->val);
+		break;
+		}
+	case V4L2_CID_IMX585_HDR_GRAD_COMP_H:{
+		ret = imx585_write_reg_1byte(imx585, IMX585_REG_ACMP2_EXP, ctrl->val);
 		if (ret)
 			dev_err_ratelimited(&client->dev,
 					    "Failed to write reg 0x%4.4x. error = %d\n",
 					    IMX585_REG_ACMP2_EXP, ret);
-		dev_info(&client->dev, "V4L2_CID_IMX585_HDR_GRAD_COMP : %d, %d\n",exp[0],exp[1]);
+		dev_info(&client->dev, "V4L2_CID_IMX585_HDR_GRAD_COMP_H : %d\n",ctrl->val);
 		break;
 		}
 	case V4L2_CID_IMX585_HDR_GAIN:
@@ -1335,10 +1380,11 @@ static const struct v4l2_ctrl_ops imx585_ctrl_ops = {
 	.s_ctrl = imx585_set_ctrl,
 };
 
+static const u16 hdr_thresh_def[2] = { 512, 1024 };
 static const struct v4l2_ctrl_config imx585_cfg_hdr_datasel_th = {
 	.ops = &imx585_ctrl_ops,
 	.id = V4L2_CID_IMX585_HDR_DATASEL_TH,
-	.name = "HDR Data selection Threshold",
+	.name = "HDR Data selection Threshold (12bit)",
 	.type = V4L2_CTRL_TYPE_U16,
 	.min = 0,
 	.max = 0x0FFF,
@@ -1352,17 +1398,18 @@ static const struct v4l2_ctrl_config imx585_cfg_hdr_datasel_bk = {
 	.ops = &imx585_ctrl_ops,
 	.id = V4L2_CID_IMX585_HDR_DATASEL_BK,
 	.name = "HDR Data Blending Mode",
-	.type = V4L2_CTRL_TYPE_INTEGER,
-	.min = 0,
-	.max = 7,
-	.step = 1,
+	.type = V4L2_CTRL_TYPE_MENU,
+	.max = ARRAY_SIZE(hdr_data_blender_menu),
+	.menu_skip_mask = 0,
 	.def = 0,
+	.qmenu = hdr_data_blender_menu,
 };
 
+static const u32 grad_thresh_def[2] = { 500, 11500 };
 static const struct v4l2_ctrl_config imx585_cfg_hdr_grad_th = {
 	.ops = &imx585_ctrl_ops,
 	.id = V4L2_CID_IMX585_HDR_GRAD_TH,
-	.name = "Gradiant Compression Threshold",
+	.name = "Gradiant Compression Threshold (16bit)",
 	.type = V4L2_CTRL_TYPE_U32,
 	.min = 0,
 	.max = 0x1FFFF,
@@ -1372,28 +1419,40 @@ static const struct v4l2_ctrl_config imx585_cfg_hdr_grad_th = {
 	.elem_size = sizeof(u32),
 };
 
-static const struct v4l2_ctrl_config imx585_cfg_hdr_grad_exp = {
+static const struct v4l2_ctrl_config imx585_cfg_hdr_grad_exp_l = {
 	.ops = &imx585_ctrl_ops,
-	.id = V4L2_CID_IMX585_HDR_GRAD_COMP,
-	.name = "Gradiant Compression Ratio",
-	.type = V4L2_CTRL_TYPE_U8,
+	.id = V4L2_CID_IMX585_HDR_GRAD_COMP_L,
+	.name = "Gradiant Compression Ratio Low",
+	.type = V4L2_CTRL_TYPE_MENU,
 	.min = 0,
-	.max = 11,
-	.step = 1,
-	.def = 0,
-	.dims = { 2 },
-	.elem_size = sizeof(u8),
+	.max = ARRAY_SIZE(grad_compression_slope_menu),
+	.menu_skip_mask = 0,
+	.def = 2,
+	.qmenu = grad_compression_slope_menu,
+};
+
+static const struct v4l2_ctrl_config imx585_cfg_hdr_grad_exp_h = {
+	.ops = &imx585_ctrl_ops,
+	.id = V4L2_CID_IMX585_HDR_GRAD_COMP_H,
+	.name = "Gradiant Compression Ratio High",
+	.type = V4L2_CTRL_TYPE_MENU,
+	.min = 0,
+	.max = ARRAY_SIZE(grad_compression_slope_menu),
+	.menu_skip_mask = 0,
+	.def = 6,
+	.qmenu = grad_compression_slope_menu,
 };
 
 static const struct v4l2_ctrl_config imx585_cfg_hdr_gain = {
 	.ops = &imx585_ctrl_ops,
 	.id = V4L2_CID_IMX585_HDR_GAIN,
-	.name = "HDR Gain Adder",
-	.type = V4L2_CTRL_TYPE_INTEGER,
+	.name = "HDR Gain Adder (dB)",
+	.type = V4L2_CTRL_TYPE_MENU,
 	.min = 0,
-	.max = 5,
-	.step = 1,
+	.max = ARRAY_SIZE(hdr_gain_adder_menu),
+	.menu_skip_mask = 0,
 	.def = 2,
+	.qmenu = hdr_gain_adder_menu,
 };
 
 
@@ -1663,9 +1722,6 @@ static int imx585_start_streaming(struct imx585 *imx585)
 			dev_err(&client->dev, "%s failed to set ClearHDR settings\n", __func__);
 			return ret;
 		}
-		imx585_write_reg_2byte(imx585, IMX585_REG_EXP_TH_H, 4095);
-		imx585_write_reg_2byte(imx585, IMX585_REG_EXP_TH_L, 512);
-		imx585_write_reg_1byte(imx585, IMX585_REG_EXP_BK, 0);
 		//16bit mode is linear, 12bit mode we need to enable gradation compression 
 		switch (imx585->fmt_code) {
 			/* 16-bit */
@@ -1674,10 +1730,6 @@ static int imx585_start_streaming(struct imx585 *imx585)
 			case MEDIA_BUS_FMT_SGBRG16_1X16:
 			case MEDIA_BUS_FMT_SBGGR16_1X16:
 			case MEDIA_BUS_FMT_Y16_1X16:
-				imx585_write_reg_3byte(imx585, IMX585_REG_CCMP1_EXP, 0);
-				imx585_write_reg_1byte(imx585, IMX585_REG_ACMP1_EXP, 0);
-				imx585_write_reg_3byte(imx585, IMX585_REG_CCMP2_EXP, 0);
-				imx585_write_reg_1byte(imx585, IMX585_REG_ACMP2_EXP, 0);
 				imx585_write_reg_1byte(imx585, IMX595_REG_CCMP_EN, 0);
 				imx585_write_reg_1byte(imx585, 0x3023, 0x03); // MDBIT 16-bit
 				dev_info(&client->dev, "16bit HDR written\n");
@@ -1688,10 +1740,6 @@ static int imx585_start_streaming(struct imx585 *imx585)
 			case MEDIA_BUS_FMT_SGBRG12_1X12:
 			case MEDIA_BUS_FMT_SBGGR12_1X12:
 			case MEDIA_BUS_FMT_Y12_1X12:
-				imx585_write_reg_3byte(imx585, IMX585_REG_CCMP1_EXP, 500);
-				imx585_write_reg_1byte(imx585, IMX585_REG_ACMP1_EXP, 0x2);
-				imx585_write_reg_3byte(imx585, IMX585_REG_CCMP2_EXP, 11500);
-				imx585_write_reg_1byte(imx585, IMX585_REG_ACMP2_EXP, 0x6);
 				imx585_write_reg_1byte(imx585, IMX595_REG_CCMP_EN, 1);
 				dev_info(&client->dev, "12bit HDR written\n");
 				break;
@@ -2044,14 +2092,16 @@ static int imx585_init_controls(struct imx585 *imx585)
 					     0, 1, 1, 0);
 	imx585->datasel_th_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &imx585_cfg_hdr_datasel_th, NULL);
 	imx585->datasel_bk_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &imx585_cfg_hdr_datasel_bk, NULL);
-	imx585->gradcomp_th_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &imx585_cfg_hdr_grad_th, NULL);
-    imx585->gradcomp_exp_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &imx585_cfg_hdr_grad_exp, NULL);
-	imx585->hdr_gain_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &imx585_cfg_hdr_gain, NULL);
+	imx585->gdc_th_ctrl     = v4l2_ctrl_new_custom(ctrl_hdlr, &imx585_cfg_hdr_grad_th, NULL);
+    imx585->gdc_exp_ctrl_l  = v4l2_ctrl_new_custom(ctrl_hdlr, &imx585_cfg_hdr_grad_exp_l, NULL);
+    imx585->gdc_exp_ctrl_h  = v4l2_ctrl_new_custom(ctrl_hdlr, &imx585_cfg_hdr_grad_exp_h, NULL);
+	imx585->hdr_gain_ctrl   = v4l2_ctrl_new_custom(ctrl_hdlr, &imx585_cfg_hdr_gain, NULL);
 
 	v4l2_ctrl_activate(imx585->datasel_th_ctrl,  imx585->clear_HDR);
 	v4l2_ctrl_activate(imx585->datasel_bk_ctrl,  imx585->clear_HDR);
-	v4l2_ctrl_activate(imx585->gradcomp_th_ctrl, imx585->clear_HDR);
-	v4l2_ctrl_activate(imx585->gradcomp_exp_ctrl,imx585->clear_HDR);
+	v4l2_ctrl_activate(imx585->gdc_th_ctrl,      imx585->clear_HDR);
+	v4l2_ctrl_activate(imx585->gdc_exp_ctrl_l,   imx585->clear_HDR);
+	v4l2_ctrl_activate(imx585->gdc_exp_ctrl_h,   imx585->clear_HDR);
 	v4l2_ctrl_activate(imx585->hdr_gain_ctrl,    imx585->clear_HDR);
 
 	if (ctrl_hdlr->error) {
@@ -2069,9 +2119,15 @@ static int imx585_init_controls(struct imx585 *imx585)
 	if (ret)
 		goto error;
 
+
+    memcpy(imx585->datasel_th_ctrl->p_cur.p, hdr_thresh_def, sizeof(hdr_thresh_def));
+    memcpy(imx585->datasel_th_ctrl->p_new.p, hdr_thresh_def, sizeof(hdr_thresh_def));
+
+    memcpy(imx585->gdc_th_ctrl->p_cur.p, grad_thresh_def, sizeof(grad_thresh_def));
+    memcpy(imx585->gdc_th_ctrl->p_new.p, grad_thresh_def, sizeof(grad_thresh_def));
+
 	imx585->hdr_mode->flags |= V4L2_CTRL_FLAG_UPDATE;
 	imx585->hdr_mode->flags |= V4L2_CTRL_FLAG_MODIFY_LAYOUT;
-
 
 	imx585->sd.ctrl_handler = ctrl_hdlr;
 
