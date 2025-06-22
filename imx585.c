@@ -6,8 +6,6 @@
  * Copyright (C) 2019-2020 Raspberry Pi (Trading) Ltd
  * Modified by Will WHANG
  * Modified by sohonomura2020 in Soho Enterprise Ltd.
- * Modified by OCTOPUSCINEMA
- * Copyright (C) 2024 OCTOPUS CINEMA
  */
 #include <linux/unaligned.h>
 #include <linux/clk.h>
@@ -2335,7 +2333,6 @@ static int imx585_probe(struct i2c_client *client)
 		dev_info(dev, "No IR-cut controller\n");
 	}
 
-
 	/* Initialize default format */
 	imx585_set_default_format(imx585);
 
@@ -2425,6 +2422,5 @@ module_i2c_driver(imx585_i2c_driver);
 
 MODULE_AUTHOR("Will Whang <will@willwhang.com>");
 MODULE_AUTHOR("Tetsuya NOMURA <tetsuya.nomura@soho-enterprise.com>");
-MODULE_AUTHOR("Russell Newman <russellnewman@octopuscinema.com>");
 MODULE_DESCRIPTION("Sony imx585 sensor driver");
 MODULE_LICENSE("GPL");
