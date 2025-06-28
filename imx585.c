@@ -278,13 +278,13 @@ struct imx585_mode {
 	u8   hmax_div;
 
 	/* minimum H-timing */
-	u64 min_HMAX;
+	u16 min_HMAX;
 
 	/* minimum V-timing */
 	u64 min_VMAX;
 
 	/* default H-timing */
-	u64 default_HMAX;
+	u16 default_HMAX;
 
 	/* default V-timing */
 	u64 default_VMAX;
@@ -1452,12 +1452,45 @@ static void imx585_update_gain_limits(struct imx585 *imx585)
 					   clamp(cur, min, max));
 }
 
+static void imx585_update_hmax(struct imx585 *imx585)
+{
+
+	struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
+
+	const u32 base_4lane = HMAX_table_4lane_4K[imx585->link_freq_idx];
+	const u32 lane_scale = (imx585->lane_count == 2) ? 2 : 1;
+	const u32 factor     = base_4lane * lane_scale;
+	const u32 hdr_factor = (imx585->clear_HDR) ? 2 : 1;
+
+	dev_info(&client->dev, "Upadte minimum HMAX\n");
+	dev_info(&client->dev, "\tbase_4lane: %d\n", base_4lane);
+	dev_info(&client->dev, "\tlane_scale: %d\n", lane_scale);
+	dev_info(&client->dev, "\tfactor: %d\n", factor);
+	dev_info(&client->dev, "\thdr_factor: %d\n", hdr_factor);
+
+	for (unsigned int i = 0; i < ARRAY_SIZE(supported_modes); ++i) {
+		u32 h = factor / supported_modes[i].hmax_div;
+		u64 v = IMX585_VMAX_DEFAULT * hdr_factor;
+
+		supported_modes[i].min_HMAX     = h;
+		supported_modes[i].default_HMAX = h;
+		supported_modes[i].min_VMAX     = v;
+		supported_modes[i].default_VMAX = v;
+		dev_info(&client->dev, "\tvmax: %lld x hmax: %d\n", v, h);
+	}
+
+}
+
 static void imx585_set_framing_limits(struct imx585 *imx585)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
 	const struct imx585_mode *mode = imx585->mode;
 	u64 default_hblank, max_hblank;
 	u64 pixel_rate;
+
+	imx585_update_hmax(imx585);
+
+	dev_info(&client->dev, "mode: %d x %d\n", mode->width, mode->height);
 
 	imx585->VMAX = mode->default_VMAX;
 	imx585->HMAX = mode->default_HMAX;
@@ -1487,41 +1520,11 @@ static void imx585_set_framing_limits(struct imx585 *imx585)
 	__v4l2_ctrl_modify_range(imx585->exposure, IMX585_EXPOSURE_MIN,
 			 imx585->VMAX - IMX585_SHR_MIN_CLEARHDR, 1,
 				IMX585_EXPOSURE_DEFAULT);
-
+	dev_info(&client->dev, "default vmax: %lld x hmax: %d\n", mode->min_VMAX, mode->min_HMAX);
 	dev_info(&client->dev, "Setting default HBLANK : %llu, VBLANK : %llu PixelRate: %lld\n",
 		 default_hblank, mode->default_VMAX - mode->height, pixel_rate);
+	
 }
-
-static void imx585_update_hmax(struct imx585 *imx585)
-{
-
-	struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
-
-	const u32 base_4lane = HMAX_table_4lane_4K[imx585->link_freq_idx];
-	const u32 lane_scale = (imx585->lane_count == 2) ? 2 : 1;
-	const u32 factor     = base_4lane * lane_scale;
-	const u32 hdr_factor = (imx585->clear_HDR) ? 2 : 1;
-
-	dev_info(&client->dev, "Upadte minimum HMAX\n");
-	dev_info(&client->dev, "\tbase_4lane: %d\n", base_4lane);
-	dev_info(&client->dev, "\tlane_scale: %d\n", lane_scale);
-	dev_info(&client->dev, "\tfactor: %d\n", factor);
-	dev_info(&client->dev, "\thdr_factor: %d\n", hdr_factor);
-
-	for (unsigned int i = 0; i < ARRAY_SIZE(supported_modes); ++i) {
-		struct imx585_mode *m = &supported_modes[i];
-		u32 h = factor / m->hmax_div;        /* one divide per mode */
-		u64 v = IMX585_VMAX_DEFAULT * hdr_factor;
-
-		m->min_HMAX     = h;
-		m->default_HMAX = h;
-		m->min_VMAX     = v;
-		m->default_VMAX = v;
-		dev_info(&client->dev, "\tv: %lld x h: %d\n", v, h);
-	}
-
-}
-
 
 static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 {
@@ -1558,7 +1561,6 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 								  width, height,
 								  imx585->mode->width,
 								  imx585->mode->height);
-			imx585_update_hmax(imx585); //ClearHDR mode will double the VMAX
 			imx585_set_framing_limits(imx585);
 		}
 		break;
@@ -2693,8 +2695,6 @@ static int imx585_check_hwcfg(struct device *dev, struct imx585 *imx585)
 	}
 
 	dev_info(dev, "Link Speed: %lld Mhz\n", ep_cfg.link_frequencies[0]);
-
-	imx585_update_hmax(imx585);
 
 	ret = 0;
 
