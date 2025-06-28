@@ -1072,8 +1072,9 @@ static const char * const imx585_supply_name[] = {
 #define imx585_XCLR_DELAY_RANGE_US  1000
 
 struct imx585_compatible_data {
-	bool clearHDR;
-	u16 analog_gain_reg;
+	const char *name;
+	const bool clearHDR;
+	const u16 analog_gain_reg;
 	struct IMX585_reg_list common_regs;
 	struct IMX585_reg_list clearHDR_common_regs;
 	struct IMX585_reg_list normal_common_regs;
@@ -1087,6 +1088,7 @@ struct imx585 {
 
 	struct clk *xclk;
 	u32 xclk_freq;
+
 	/* chosen INCK_SEL register value */
 	u8  inck_sel_val;
 
@@ -1162,7 +1164,7 @@ struct imx585 {
 	/* Rewrite common registers on stream on? */
 	bool common_regs_written;
 
-	/* Any extra information related to different compatible sensors */
+	/* Registers to different compatible sensors */
 	const struct imx585_compatible_data *regs;
 };
 
@@ -2570,6 +2572,7 @@ static void imx585_free_controls(struct imx585 *imx585)
 }
 
 static const struct imx585_compatible_data imx585_compatible = {
+	.name = "IMX585",
 	.clearHDR = true,
 	.analog_gain_reg = IMX585_REG_ANALOG_GAIN,
 	.common_regs = {
@@ -2588,6 +2591,7 @@ static const struct imx585_compatible_data imx585_compatible = {
 
 
 static const struct imx585_compatible_data imx678_compatible = {
+	.name = "IMX678",
 	.clearHDR = false,
 	.analog_gain_reg = IMX678_REG_ANALOG_GAIN,
 	.common_regs = {
@@ -2693,7 +2697,7 @@ static int imx585_probe(struct i2c_client *client)
 		return -ENODEV;
 	imx585->regs =
 		(const struct imx585_compatible_data *)match->data;
-
+	dev_info(dev, "Driver setup for: %s\n", imx585->regs->name);
 	dev_info(dev, "Reading dtoverlay config:\n");
 	imx585->mono = of_property_read_bool(dev->of_node, "mono-mode");
 	if(imx585->mono){
