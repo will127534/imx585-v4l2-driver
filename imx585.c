@@ -1523,7 +1523,7 @@ static void imx585_set_framing_limits(struct imx585 *imx585)
 	dev_info(&client->dev, "default vmax: %lld x hmax: %d\n", mode->min_VMAX, mode->min_HMAX);
 	dev_info(&client->dev, "Setting default HBLANK : %llu, VBLANK : %llu PixelRate: %lld\n",
 		 default_hblank, mode->default_VMAX - mode->height, pixel_rate);
-	
+
 }
 
 static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
