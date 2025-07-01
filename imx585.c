@@ -118,7 +118,6 @@
 #define IMX585_REG_DIGITAL_CLAMP        0x3458
 
 /* Analog gain control */
-#define IMX678_REG_ANALOG_GAIN          0x3070
 #define IMX585_REG_ANALOG_GAIN          0x306C
 #define IMX585_REG_FDG_SEL0             0x3030
 #define IMX585_ANA_GAIN_MIN_NORMAL      0
@@ -298,7 +297,7 @@ struct imx585_mode {
 
 /* IMX585 Register List */
 /* Common Modes */
-static struct imx585_reg imx585_common_regs[] = {
+static struct imx585_reg common_regs[] = {
 	{0x3002, 0x01},
 	{0x3069, 0x00},
 	{0x3074, 0x64},
@@ -527,7 +526,7 @@ static struct imx585_reg imx585_common_regs[] = {
 };
 
 /* Common Registers for ClearHDR. */
-static const struct imx585_reg imx585_common_clearHDR_mode[] = {
+static const struct imx585_reg common_clearHDR_mode[] = {
 	{0x301A, 0x10}, // WDMODE: Clear HDR mode
 	{0x3024, 0x02}, // COMBI_EN: 0x02
 	{0x3069, 0x02}, // Clear HDR mode
@@ -545,7 +544,7 @@ static const struct imx585_reg imx585_common_clearHDR_mode[] = {
 };
 
 /* Common Registers for non-ClearHDR. */
-static const struct imx585_reg imx585_common_normal_mode[] = {
+static const struct imx585_reg common_normal_mode[] = {
 	{0x301A, 0x00}, // WDMODE: Normal mode
 	{0x3024, 0x00}, // COMBI_EN: 0x00
 	{0x3069, 0x00}, // Normal mode
@@ -578,390 +577,6 @@ static const struct imx585_reg mode_1080_regs_12bit[] = {
 };
 /* IMX585 Register List - END*/
 
-
-/* IMX678 Register List */
-/* Common Modes */
-static struct imx585_reg imx678_common_regs[] = {
-	{0x301C, 0x00}, // THIN_V_EN
-	{0x301E, 0x01}, // VCMODE
-	{0x306B, 0x00}, // Sensor_register
-	{0x3400, 0x01}, // GAIN_PGC_FIDMD
-	{0x3460, 0x22}, // Sensor_register
-	{0x355A, 0x64}, // Sensor_register
-	{0x3A02, 0x7A}, // Sensor_register
-	{0x3A10, 0xEC}, // Sensor_register
-	{0x3A12, 0x71}, // Sensor_register
-	{0x3A14, 0xDE}, // Sensor_register
-	{0x3A20, 0x2B}, // Sensor_register
-	{0x3A24, 0x22}, // Sensor_register
-	{0x3A25, 0x25}, // Sensor_register
-	{0x3A26, 0x2A}, // Sensor_register
-	{0x3A27, 0x2C}, // Sensor_register
-	{0x3A28, 0x39}, // Sensor_register
-	{0x3A29, 0x38}, // Sensor_register
-	{0x3A30, 0x04}, // Sensor_register
-	{0x3A31, 0x04}, // Sensor_register
-	{0x3A32, 0x03}, // Sensor_register
-	{0x3A33, 0x03}, // Sensor_register
-	{0x3A34, 0x09}, // Sensor_register
-	{0x3A35, 0x06}, // Sensor_register
-	{0x3A38, 0xCD}, // Sensor_register
-	{0x3A3A, 0x4C}, // Sensor_register
-	{0x3A3C, 0xB9}, // Sensor_register
-	{0x3A3E, 0x30}, // Sensor_register
-	{0x3A40, 0x2C}, // Sensor_register
-	{0x3A42, 0x39}, // Sensor_register
-	{0x3A4E, 0x00}, // Sensor_register
-	{0x3A52, 0x00}, // Sensor_register
-	{0x3A56, 0x00}, // Sensor_register
-	{0x3A5A, 0x00}, // Sensor_register
-	{0x3A5E, 0x00}, // Sensor_register
-	{0x3A62, 0x00}, // Sensor_register
-	{0x3A64, 0x00}, // Sensor_register
-	{0x3A6E, 0xA0}, // Sensor_register
-	{0x3A70, 0x50}, // Sensor_register
-	{0x3A8C, 0x04}, // Sensor_register
-	{0x3A8D, 0x03}, // Sensor_register
-	{0x3A8E, 0x09}, // Sensor_register
-	{0x3A90, 0x38}, // Sensor_register
-	{0x3A91, 0x42}, // Sensor_register
-	{0x3A92, 0x3C}, // Sensor_register
-	{0x3B0E, 0xF3}, // Sensor_register
-	{0x3B12, 0xE5}, // Sensor_register
-	{0x3B27, 0xC0}, // Sensor_register
-	{0x3B2E, 0xEF}, // Sensor_register
-	{0x3B30, 0x6A}, // Sensor_register
-	{0x3B32, 0xF6}, // Sensor_register
-	{0x3B36, 0xE1}, // Sensor_register
-	{0x3B3A, 0xE8}, // Sensor_register
-	{0x3B5A, 0x17}, // Sensor_register
-	{0x3B5E, 0xEF}, // Sensor_register
-	{0x3B60, 0x6A}, // Sensor_register
-	{0x3B62, 0xF6}, // Sensor_register
-	{0x3B66, 0xE1}, // Sensor_register
-	{0x3B6A, 0xE8}, // Sensor_register
-	{0x3B88, 0xEC}, // Sensor_register
-	{0x3B8A, 0xED}, // Sensor_register
-	{0x3B94, 0x71}, // Sensor_register
-	{0x3B96, 0x72}, // Sensor_register
-	{0x3B98, 0xDE}, // Sensor_register
-	{0x3B9A, 0xDF}, // Sensor_register
-	{0x3C0F, 0x06}, // Sensor_register
-	{0x3C10, 0x06}, // Sensor_register
-	{0x3C11, 0x06}, // Sensor_register
-	{0x3C12, 0x06}, // Sensor_register
-	{0x3C13, 0x06}, // Sensor_register
-	{0x3C18, 0x20}, // Sensor_register
-	{0x3C37, 0x10}, // Sensor_register
-	{0x3C3A, 0x7A}, // Sensor_register
-	{0x3C40, 0xF4}, // Sensor_register
-	{0x3C48, 0xE6}, // Sensor_register
-	{0x3C54, 0xCE}, // Sensor_register
-	{0x3C56, 0xD0}, // Sensor_register
-	{0x3C6C, 0x53}, // Sensor_register
-	{0x3C6E, 0x55}, // Sensor_register
-	{0x3C70, 0xC0}, // Sensor_register
-	{0x3C72, 0xC2}, // Sensor_register
-	{0x3C7E, 0xCE}, // Sensor_register
-	{0x3C8C, 0xCF}, // Sensor_register
-	{0x3C8E, 0xEB}, // Sensor_register
-	{0x3C98, 0x54}, // Sensor_register
-	{0x3C9A, 0x70}, // Sensor_register
-	{0x3C9C, 0xC1}, // Sensor_register
-	{0x3C9E, 0xDD}, // Sensor_register
-	{0x3CB0, 0x7A}, // Sensor_register
-	{0x3CB2, 0xBA}, // Sensor_register
-	{0x3CC8, 0xBC}, // Sensor_register
-	{0x3CCA, 0x7C}, // Sensor_register
-	{0x3CD4, 0xEA}, // Sensor_register
-	{0x3CD5, 0x01}, // Sensor_register
-	{0x3CD6, 0x4A}, // Sensor_register
-	{0x3CD8, 0x00}, // Sensor_register
-	{0x3CD9, 0x00}, // Sensor_register
-	{0x3CDA, 0xFF}, // Sensor_register
-	{0x3CDB, 0x03}, // Sensor_register
-	{0x3CDC, 0x00}, // Sensor_register
-	{0x3CDD, 0x00}, // Sensor_register
-	{0x3CDE, 0xFF}, // Sensor_register
-	{0x3CDF, 0x03}, // Sensor_register
-	{0x3CE4, 0x4C}, // Sensor_register
-	{0x3CE6, 0xEC}, // Sensor_register
-	{0x3CE7, 0x01}, // Sensor_register
-	{0x3CE8, 0xFF}, // Sensor_register
-	{0x3CE9, 0x03}, // Sensor_register
-	{0x3CEA, 0x00}, // Sensor_register
-	{0x3CEB, 0x00}, // Sensor_register
-	{0x3CEC, 0xFF}, // Sensor_register
-	{0x3CED, 0x03}, // Sensor_register
-	{0x3CEE, 0x00}, // Sensor_register
-	{0x3CEF, 0x00}, // Sensor_register
-	{0x3CF2, 0xFF}, // Sensor_register
-	{0x3CF3, 0x03}, // Sensor_register
-	{0x3CF4, 0x00}, // Sensor_register
-	{0x3E28, 0x82}, // Sensor_register
-	{0x3E2A, 0x80}, // Sensor_register
-	{0x3E30, 0x85}, // Sensor_register
-	{0x3E32, 0x7D}, // Sensor_register
-	{0x3E5C, 0xCE}, // Sensor_register
-	{0x3E5E, 0xD3}, // Sensor_register
-	{0x3E70, 0x53}, // Sensor_register
-	{0x3E72, 0x58}, // Sensor_register
-	{0x3E74, 0xC0}, // Sensor_register
-	{0x3E76, 0xC5}, // Sensor_register
-	{0x3E78, 0xC0}, // Sensor_register
-	{0x3E79, 0x01}, // Sensor_register
-	{0x3E7A, 0xD4}, // Sensor_register
-	{0x3E7B, 0x01}, // Sensor_register
-	{0x3EB4, 0x0B}, // Sensor_register
-	{0x3EB5, 0x02}, // Sensor_register
-	{0x3EB6, 0x4D}, // Sensor_register
-	{0x3EB7, 0x42}, // Sensor_register
-	{0x3EEC, 0xF3}, // Sensor_register
-	{0x3EEE, 0xE7}, // Sensor_register
-	{0x3F01, 0x01}, // Sensor_register
-	{0x3F24, 0x10}, // Sensor_register
-	{0x3F28, 0x2D}, // Sensor_register
-	{0x3F2A, 0x2D}, // Sensor_register
-	{0x3F2C, 0x2D}, // Sensor_register
-	{0x3F2E, 0x2D}, // Sensor_register
-	{0x3F30, 0x23}, // Sensor_register
-	{0x3F38, 0x2D}, // Sensor_register
-	{0x3F3A, 0x2D}, // Sensor_register
-	{0x3F3C, 0x2D}, // Sensor_register
-	{0x3F3E, 0x28}, // Sensor_register
-	{0x3F40, 0x1E}, // Sensor_register
-	{0x3F48, 0x2D}, // Sensor_register
-	{0x3F4A, 0x2D}, // Sensor_register
-	{0x3F4C, 0x00}, // Sensor_register
-	{0x4004, 0xE4}, // Sensor_register
-	{0x4006, 0xFF}, // Sensor_register
-	{0x4018, 0x69}, // Sensor_register
-	{0x401A, 0x84}, // Sensor_register
-	{0x401C, 0xD6}, // Sensor_register
-	{0x401E, 0xF1}, // Sensor_register
-	{0x4038, 0xDE}, // Sensor_register
-	{0x403A, 0x00}, // Sensor_register
-	{0x403B, 0x01}, // Sensor_register
-	{0x404C, 0x63}, // Sensor_register
-	{0x404E, 0x85}, // Sensor_register
-	{0x4050, 0xD0}, // Sensor_register
-	{0x4052, 0xF2}, // Sensor_register
-	{0x4108, 0xDD}, // Sensor_register
-	{0x410A, 0xF7}, // Sensor_register
-	{0x411C, 0x62}, // Sensor_register
-	{0x411E, 0x7C}, // Sensor_register
-	{0x4120, 0xCF}, // Sensor_register
-	{0x4122, 0xE9}, // Sensor_register
-	{0x4138, 0xE6}, // Sensor_register
-	{0x413A, 0xF1}, // Sensor_register
-	{0x414C, 0x6B}, // Sensor_register
-	{0x414E, 0x76}, // Sensor_register
-	{0x4150, 0xD8}, // Sensor_register
-	{0x4152, 0xE3}, // Sensor_register
-	{0x417E, 0x03}, // Sensor_register
-	{0x417F, 0x01}, // Sensor_register
-	{0x4186, 0xE0}, // Sensor_register
-	{0x4190, 0xF3}, // Sensor_register
-	{0x4192, 0xF7}, // Sensor_register
-	{0x419C, 0x78}, // Sensor_register
-	{0x419E, 0x7C}, // Sensor_register
-	{0x41A0, 0xE5}, // Sensor_register
-	{0x41A2, 0xE9}, // Sensor_register
-	{0x41C8, 0xE2}, // Sensor_register
-	{0x41CA, 0xFD}, // Sensor_register
-	{0x41DC, 0x67}, // Sensor_register
-	{0x41DE, 0x82}, // Sensor_register
-	{0x41E0, 0xD4}, // Sensor_register
-	{0x41E2, 0xEF}, // Sensor_register
-	{0x4200, 0xDE}, // Sensor_register
-	{0x4202, 0xDA}, // Sensor_register
-	{0x4218, 0x63}, // Sensor_register
-	{0x421A, 0x5F}, // Sensor_register
-	{0x421C, 0xD0}, // Sensor_register
-	{0x421E, 0xCC}, // Sensor_register
-	{0x425A, 0x82}, // Sensor_register
-	{0x425C, 0xEF}, // Sensor_register
-	{0x4348, 0xFE}, // Sensor_register
-	{0x4349, 0x06}, // Sensor_register
-	{0x4352, 0xCE}, // Sensor_register
-	{0x4420, 0x0B}, // Sensor_register
-	{0x4421, 0x02}, // Sensor_register
-	{0x4422, 0x4D}, // Sensor_register
-	{0x4423, 0x0A}, // Sensor_register
-	{0x4426, 0xF5}, // Sensor_register
-	{0x442A, 0xE7}, // Sensor_register
-	{0x4432, 0xF5}, // Sensor_register
-	{0x4436, 0xE7}, // Sensor_register
-	{0x4466, 0xB4}, // Sensor_register
-	{0x446E, 0x32}, // Sensor_register
-	{0x449F, 0x1C}, // Sensor_register
-	{0x44A4, 0x2C}, // Sensor_register
-	{0x44A6, 0x2C}, // Sensor_register
-	{0x44A8, 0x2C}, // Sensor_register
-	{0x44AA, 0x2C}, // Sensor_register
-	{0x44B4, 0x2C}, // Sensor_register
-	{0x44B6, 0x2C}, // Sensor_register
-	{0x44B8, 0x2C}, // Sensor_register
-	{0x44BA, 0x2C}, // Sensor_register
-	{0x44C4, 0x2C}, // Sensor_register
-	{0x44C6, 0x2C}, // Sensor_register
-	{0x44C8, 0x2C}, // Sensor_register
-	{0x4506, 0xF3}, // Sensor_register
-	{0x450E, 0xE5}, // Sensor_register
-	{0x4516, 0xF3}, // Sensor_register
-	{0x4522, 0xE5}, // Sensor_register
-	{0x4524, 0xF3}, // Sensor_register
-	{0x452C, 0xE5}, // Sensor_register
-	{0x453C, 0x22}, // Sensor_register
-	{0x453D, 0x1B}, // Sensor_register
-	{0x453E, 0x1B}, // Sensor_register
-	{0x453F, 0x15}, // Sensor_register
-	{0x4540, 0x15}, // Sensor_register
-	{0x4541, 0x15}, // Sensor_register
-	{0x4542, 0x15}, // Sensor_register
-	{0x4543, 0x15}, // Sensor_register
-	{0x4544, 0x15}, // Sensor_register
-	{0x4548, 0x00}, // Sensor_register
-	{0x4549, 0x01}, // Sensor_register
-	{0x454A, 0x01}, // Sensor_register
-	{0x454B, 0x06}, // Sensor_register
-	{0x454C, 0x06}, // Sensor_register
-	{0x454D, 0x06}, // Sensor_register
-	{0x454E, 0x06}, // Sensor_register
-	{0x454F, 0x06}, // Sensor_register
-	{0x4550, 0x06}, // Sensor_register
-	{0x4554, 0x55}, // Sensor_register
-	{0x4555, 0x02}, // Sensor_register
-	{0x4556, 0x42}, // Sensor_register
-	{0x4557, 0x05}, // Sensor_register
-	{0x4558, 0xFD}, // Sensor_register
-	{0x4559, 0x05}, // Sensor_register
-	{0x455A, 0x94}, // Sensor_register
-	{0x455B, 0x06}, // Sensor_register
-	{0x455D, 0x06}, // Sensor_register
-	{0x455E, 0x49}, // Sensor_register
-	{0x455F, 0x07}, // Sensor_register
-	{0x4560, 0x7F}, // Sensor_register
-	{0x4561, 0x07}, // Sensor_register
-	{0x4562, 0xA5}, // Sensor_register
-	{0x4564, 0x55}, // Sensor_register
-	{0x4565, 0x02}, // Sensor_register
-	{0x4566, 0x42}, // Sensor_register
-	{0x4567, 0x05}, // Sensor_register
-	{0x4568, 0xFD}, // Sensor_register
-	{0x4569, 0x05}, // Sensor_register
-	{0x456A, 0x94}, // Sensor_register
-	{0x456B, 0x06}, // Sensor_register
-	{0x456D, 0x06}, // Sensor_register
-	{0x456E, 0x49}, // Sensor_register
-	{0x456F, 0x07}, // Sensor_register
-	{0x4572, 0xA5}, // Sensor_register
-	{0x460C, 0x7D}, // Sensor_register
-	{0x460E, 0xB1}, // Sensor_register
-	{0x4614, 0xA8}, // Sensor_register
-	{0x4616, 0xB2}, // Sensor_register
-	{0x461C, 0x7E}, // Sensor_register
-	{0x461E, 0xA7}, // Sensor_register
-	{0x4624, 0xA8}, // Sensor_register
-	{0x4626, 0xB2}, // Sensor_register
-	{0x462C, 0x7E}, // Sensor_register
-	{0x462E, 0x8A}, // Sensor_register
-	{0x4630, 0x94}, // Sensor_register
-	{0x4632, 0xA7}, // Sensor_register
-	{0x4634, 0xFB}, // Sensor_register
-	{0x4636, 0x2F}, // Sensor_register
-	{0x4638, 0x81}, // Sensor_register
-	{0x4639, 0x01}, // Sensor_register
-	{0x463A, 0xB5}, // Sensor_register
-	{0x463B, 0x01}, // Sensor_register
-	{0x463C, 0x26}, // Sensor_register
-	{0x463E, 0x30}, // Sensor_register
-	{0x4640, 0xAC}, // Sensor_register
-	{0x4641, 0x01}, // Sensor_register
-	{0x4642, 0xB6}, // Sensor_register
-	{0x4643, 0x01}, // Sensor_register
-	{0x4644, 0xFC}, // Sensor_register
-	{0x4646, 0x25}, // Sensor_register
-	{0x4648, 0x82}, // Sensor_register
-	{0x4649, 0x01}, // Sensor_register
-	{0x464A, 0xAB}, // Sensor_register
-	{0x464B, 0x01}, // Sensor_register
-	{0x464C, 0x26}, // Sensor_register
-	{0x464E, 0x30}, // Sensor_register
-	{0x4654, 0xFC}, // Sensor_register
-	{0x4656, 0x08}, // Sensor_register
-	{0x4658, 0x12}, // Sensor_register
-	{0x465A, 0x25}, // Sensor_register
-	{0x4662, 0xFC}, // Sensor_register
-	{0x46A2, 0xFB}, // Sensor_register
-	{0x46D6, 0xF3}, // Sensor_register
-	{0x46E6, 0x00}, // Sensor_register
-	{0x46E8, 0xFF}, // Sensor_register
-	{0x46E9, 0x03}, // Sensor_register
-	{0x46EC, 0x7A}, // Sensor_register
-	{0x46EE, 0xE5}, // Sensor_register
-	{0x46F4, 0xEE}, // Sensor_register
-	{0x46F6, 0xF2}, // Sensor_register
-	{0x470C, 0xFF}, // Sensor_register
-	{0x470D, 0x03}, // Sensor_register
-	{0x470E, 0x00}, // Sensor_register
-	{0x4714, 0xE0}, // Sensor_register
-	{0x4716, 0xE4}, // Sensor_register
-	{0x471E, 0xED}, // Sensor_register
-	{0x472E, 0x00}, // Sensor_register
-	{0x4730, 0xFF}, // Sensor_register
-	{0x4731, 0x03}, // Sensor_register
-	{0x4734, 0x7B}, // Sensor_register
-	{0x4736, 0xDF}, // Sensor_register
-	{0x4754, 0x7D}, // Sensor_register
-	{0x4756, 0x8B}, // Sensor_register
-	{0x4758, 0x93}, // Sensor_register
-	{0x475A, 0xB1}, // Sensor_register
-	{0x475C, 0xFB}, // Sensor_register
-	{0x475E, 0x09}, // Sensor_register
-	{0x4760, 0x11}, // Sensor_register
-	{0x4762, 0x2F}, // Sensor_register
-	{0x4766, 0xCC}, // Sensor_register
-	{0x4776, 0xCB}, // Sensor_register
-	{0x477E, 0x4A}, // Sensor_register
-	{0x478E, 0x49}, // Sensor_register
-	{0x4794, 0x7C}, // Sensor_register
-	{0x4796, 0x8F}, // Sensor_register
-	{0x4798, 0xB3}, // Sensor_register
-	{0x4799, 0x00}, // Sensor_register
-	{0x479A, 0xCC}, // Sensor_register
-	{0x479C, 0xC1}, // Sensor_register
-	{0x479E, 0xCB}, // Sensor_register
-	{0x47A4, 0x7D}, // Sensor_register
-	{0x47A6, 0x8E}, // Sensor_register
-	{0x47A8, 0xB4}, // Sensor_register
-	{0x47A9, 0x00}, // Sensor_register
-	{0x47AA, 0xC0}, // Sensor_register
-	{0x47AC, 0xFA}, // Sensor_register
-	{0x47AE, 0x0D}, // Sensor_register
-	{0x47B0, 0x31}, // Sensor_register
-	{0x47B1, 0x01}, // Sensor_register
-	{0x47B2, 0x4A}, // Sensor_register
-	{0x47B3, 0x01}, // Sensor_register
-	{0x47B4, 0x3F}, // Sensor_register
-	{0x47B6, 0x49}, // Sensor_register
-	{0x47BC, 0xFB}, // Sensor_register
-	{0x47BE, 0x0C}, // Sensor_register
-	{0x47C0, 0x32}, // Sensor_register
-	{0x47C1, 0x01}, // Sensor_register
-	{0x47C2, 0x3E}, // Sensor_register
-	{0x47C3, 0x01}, // Sensor_register
-};
-
-/* Common Registers for non-ClearHDR. */
-static const struct imx585_reg imx678_common_normal_mode[] = {
-	{0x301A, 0x00}, // WDMODE: Normal mode
-};
-/* IMX678 Register List - END */
-
-
-
-
 /* For Mode List:
  * Default:
  *   12Bit - FHD, 4K
@@ -976,10 +591,11 @@ static const struct imx585_reg imx678_common_normal_mode[] = {
  *   16bit mode exposed
  *
  * Technically, because the sensor is actually binning
- * via digital domain, its readout speed is the same
+ * in digital domain, its readout speed is the same
  * between 4K and FHD. However, through testing it is
  * possible to "overclock" the FHD mode, thus leaving the
  * hmax_div option for those who want to try.
+ * Also, note that FHD and 4K mode shared the same VMAX.
  */
 
 /* Mode configs */
@@ -1045,7 +661,7 @@ static const u32 codes_normal[] = {
 	MEDIA_BUS_FMT_SBGGR12_1X12,
 };
 
-/* 12bit + 16bit Clear HDR */
+/* 12bit + 16bit for Clear HDR */
 static const u32 codes_clearhdr[] = {
 	/* 16-bit modes. */
 	MEDIA_BUS_FMT_SRGGB16_1X16,
@@ -1075,15 +691,6 @@ static const char * const imx585_supply_name[] = {
 
 #define imx585_NUM_SUPPLIES ARRAY_SIZE(imx585_supply_name)
 
-struct imx585_compatible_data {
-	const char *name;
-	const bool clearHDR;
-	const u16 analog_gain_reg;
-	struct IMX585_reg_list common_regs;
-	struct IMX585_reg_list clearHDR_common_regs;
-	struct IMX585_reg_list normal_common_regs;
-};
-
 struct imx585 {
 	struct v4l2_subdev sd;
 	struct media_pad pad[NUM_PADS];
@@ -1104,6 +711,7 @@ struct imx585 {
 	struct regulator_bulk_data supplies[imx585_NUM_SUPPLIES];
 
 	struct v4l2_ctrl_handler ctrl_handler;
+
 	/* V4L2 Controls */
 	struct v4l2_ctrl *pixel_rate;
 	struct v4l2_ctrl *link_freq;
@@ -1126,8 +734,8 @@ struct imx585 {
 	struct v4l2_ctrl *hdr_gain_ctrl;
 
 	/* V4L2 IR Cut filter switch Controls */
-	bool          has_ircut;
-	struct v4l2_ctrl *ircut_ctrl;
+	bool   has_ircut;
+	struct v4l2_ctrl   *ircut_ctrl;
 	struct i2c_client  *ircut_client;
 
 	/* Current mode */
@@ -1150,8 +758,8 @@ struct imx585 {
 	 * Leader Mode = Sensor using internal clock to drive the sensor
 	 * But with external sync mode you can send a XVS input so the sensor
 	 * will try to align with it.
-	 * For Follower mode it is purely driven by external clock
-	 * In this case you need to drive both XVS and XHS
+	 * For Follower mode it is purely driven by external clock.
+	 * In this case you need to drive both XVS and XHS.
 	 */
 	u32 sync_mode;
 
@@ -1170,9 +778,6 @@ struct imx585 {
 
 	/* Rewrite common registers on stream on? */
 	bool common_regs_written;
-
-	/* Registers to different compatible sensors */
-	const struct imx585_compatible_data *regs;
 };
 
 
@@ -1206,6 +811,7 @@ static inline void get_mode_table(struct imx585 *imx585, unsigned int code,
 		case MEDIA_BUS_FMT_SGRBG16_1X16:
 		case MEDIA_BUS_FMT_SGBRG16_1X16:
 		case MEDIA_BUS_FMT_SBGGR16_1X16:
+		/* 12-bit */
 		case MEDIA_BUS_FMT_SRGGB12_1X12:
 		case MEDIA_BUS_FMT_SGRBG12_1X12:
 		case MEDIA_BUS_FMT_SGBRG12_1X12:
@@ -1327,19 +933,19 @@ static int imx585_write_reg_3byte(struct imx585 *imx585, u16 reg, u32 val)
 
 /* Write a list of 1 byte registers */
 static int imx585_write_regs(struct imx585 *imx585,
-				 const struct IMX585_reg_list *reg_list)
+			     const struct imx585_reg *regs, u32 len)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
 	unsigned int i;
 	int ret;
 
-	for (i = 0; i < reg_list->num_of_regs; i++) {
-		ret = imx585_write_reg_1byte(imx585, reg_list->regs[i].address,
-					     reg_list->regs[i].val);
+	for (i = 0; i < len; i++) {
+		ret = imx585_write_reg_1byte(imx585, regs[i].address,
+					     regs[i].val);
 		if (ret) {
 			dev_err_ratelimited(&client->dev,
-						"Failed to write reg 0x%4.4x. error = %d\n",
-						reg_list->regs[i].address, ret);
+					    "Failed to write reg 0x%4.4x. error = %d\n",
+					    regs[i].address, ret);
 
 			return ret;
 		}
@@ -1496,6 +1102,8 @@ static void imx585_set_framing_limits(struct imx585 *imx585)
 	imx585->HMAX = mode->default_HMAX;
 
 	pixel_rate = (u64)mode->width * IMX585_PIXEL_RATE;
+	/* In the case where ClearHDR is enabled, HMAX is effectly doubled */
+	/* So pixel rate is half with the same HMAX with ClearHDR */
 	do_div(pixel_rate, mode->min_HMAX);
 	__v4l2_ctrl_modify_range(imx585->pixel_rate, pixel_rate, pixel_rate, 1, pixel_rate);
 
@@ -1613,7 +1221,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		dev_info(&client->dev, "analogue gain = %u (%s)\n",
 			 gain, imx585->hgc ? "HCG" : "LCG");
 
-		ret = imx585_write_reg_2byte(imx585, imx585->regs->analog_gain_reg, gain);
+		ret = imx585_write_reg_2byte(imx585, IMX585_REG_ANALOG_GAIN, gain);
 		if (ret)
 			dev_err_ratelimited(&client->dev,
 					    "ANALOG_GAIN write failed (%d)\n", ret);
@@ -1651,7 +1259,6 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 						    IMX585_REG_VMAX, ret);
 		break;
 		}
-
 	case V4L2_CID_HBLANK:
 		{
 			u64 pixel_rate;
@@ -2099,10 +1706,11 @@ __imx585_get_pad_crop(struct imx585 *imx585,
 static int imx585_start_streaming(struct imx585 *imx585)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
+	const struct IMX585_reg_list *reg_list;
 	int ret;
 
 	if (!imx585->common_regs_written) {
-		ret = imx585_write_regs(imx585, &imx585->regs->common_regs);
+		ret = imx585_write_regs(imx585, common_regs, ARRAY_SIZE(common_regs));
 		if (ret) {
 			dev_err(&client->dev, "%s failed to set common settings\n", __func__);
 			return ret;
@@ -2147,14 +1755,16 @@ static int imx585_start_streaming(struct imx585 *imx585)
 	}
 
 	/* Apply default values of current mode */
-	ret = imx585_write_regs(imx585, &imx585->mode->reg_list);
+	reg_list = &imx585->mode->reg_list;
+	ret = imx585_write_regs(imx585, reg_list->regs, reg_list->num_of_regs);
 	if (ret) {
 		dev_err(&client->dev, "%s failed to set mode\n", __func__);
 		return ret;
 	}
 
 	if (imx585->clear_HDR) {
-		ret = imx585_write_regs(imx585, &imx585->regs->clearHDR_common_regs);
+		ret = imx585_write_regs(imx585, common_clearHDR_mode,
+					ARRAY_SIZE(common_clearHDR_mode));
 		if (ret) {
 			dev_err(&client->dev, "%s failed to set ClearHDR settings\n", __func__);
 			return ret;
@@ -2186,7 +1796,7 @@ static int imx585_start_streaming(struct imx585 *imx585)
 		dev_info(&client->dev, "ClearHDR_regs_written\n");
 
 	} else {
-		ret = imx585_write_regs(imx585, &imx585->regs->normal_common_regs);
+		ret = imx585_write_regs(imx585, common_normal_mode, ARRAY_SIZE(common_normal_mode));
 		if (ret) {
 			dev_err(&client->dev, "%s failed to set Normal settings\n", __func__);
 			return ret;
@@ -2389,11 +1999,11 @@ static int imx585_check_module_exists(struct imx585 *imx585)
 	ret = imx585_read_reg(imx585, IMX585_REG_BLKLEVEL,
 				  1, &val);
 	if (ret) {
-		dev_err(&client->dev, "failed to read chip id, with error %d\n", ret);
+		dev_err(&client->dev, "failed to read chip reg, with error %d\n", ret);
 		return ret;
 	}
 
-	dev_info(&client->dev, "Device found, ID: %x\n", val);
+	dev_info(&client->dev, "Reg read success, Device found\n");
 
 	return 0;
 }
@@ -2523,33 +2133,32 @@ static int imx585_init_controls(struct imx585 *imx585)
 					  0, 1, 1, 1);
 	}
 
-	if (imx585->regs->clearHDR) {
-		imx585->hdr_mode = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops,
-							 V4L2_CID_WIDE_DYNAMIC_RANGE,
-							 0, 1, 1, 0);
-		imx585->datasel_th_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr,
-							       &imx585_cfg_datasel_th, NULL);
-		imx585->datasel_bk_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr,
-							       &imx585_cfg_datasel_bk, NULL);
-		imx585->gdc_th_ctrl     = v4l2_ctrl_new_custom(ctrl_hdlr,
-							       &imx585_cfg_grad_th, NULL);
-		imx585->gdc_exp_ctrl_l  = v4l2_ctrl_new_custom(ctrl_hdlr,
-							       &imx585_cfg_grad_exp_l, NULL);
-		imx585->gdc_exp_ctrl_h  = v4l2_ctrl_new_custom(ctrl_hdlr,
-							       &imx585_cfg_grad_exp_h, NULL);
-		imx585->hdr_gain_ctrl   = v4l2_ctrl_new_custom(ctrl_hdlr,
-							       &imx585_cfg_hdr_gain, NULL);
-		imx585->hgc_ctrl        = v4l2_ctrl_new_custom(ctrl_hdlr,
-							       &imx585_cfg_hgc, NULL);
+	imx585->hdr_mode = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops,
+						 V4L2_CID_WIDE_DYNAMIC_RANGE,
+						 0, 1, 1, 0);
+	imx585->datasel_th_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr,
+						       &imx585_cfg_datasel_th, NULL);
+	imx585->datasel_bk_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr,
+						       &imx585_cfg_datasel_bk, NULL);
+	imx585->gdc_th_ctrl     = v4l2_ctrl_new_custom(ctrl_hdlr,
+						       &imx585_cfg_grad_th, NULL);
+	imx585->gdc_exp_ctrl_l  = v4l2_ctrl_new_custom(ctrl_hdlr,
+						       &imx585_cfg_grad_exp_l, NULL);
+	imx585->gdc_exp_ctrl_h  = v4l2_ctrl_new_custom(ctrl_hdlr,
+						       &imx585_cfg_grad_exp_h, NULL);
+	imx585->hdr_gain_ctrl   = v4l2_ctrl_new_custom(ctrl_hdlr,
+						       &imx585_cfg_hdr_gain, NULL);
+	imx585->hgc_ctrl        = v4l2_ctrl_new_custom(ctrl_hdlr,
+						       &imx585_cfg_hgc, NULL);
 
-		v4l2_ctrl_activate(imx585->datasel_th_ctrl,  imx585->clear_HDR);
-		v4l2_ctrl_activate(imx585->datasel_bk_ctrl,  imx585->clear_HDR);
-		v4l2_ctrl_activate(imx585->gdc_th_ctrl,      imx585->clear_HDR);
-		v4l2_ctrl_activate(imx585->gdc_exp_ctrl_l,   imx585->clear_HDR);
-		v4l2_ctrl_activate(imx585->gdc_exp_ctrl_h,   imx585->clear_HDR);
-		v4l2_ctrl_activate(imx585->hdr_gain_ctrl,    imx585->clear_HDR);
-		v4l2_ctrl_activate(imx585->hgc_ctrl,        !imx585->clear_HDR);
-	}
+	v4l2_ctrl_activate(imx585->datasel_th_ctrl,  imx585->clear_HDR);
+	v4l2_ctrl_activate(imx585->datasel_bk_ctrl,  imx585->clear_HDR);
+	v4l2_ctrl_activate(imx585->gdc_th_ctrl,      imx585->clear_HDR);
+	v4l2_ctrl_activate(imx585->gdc_exp_ctrl_l,   imx585->clear_HDR);
+	v4l2_ctrl_activate(imx585->gdc_exp_ctrl_h,   imx585->clear_HDR);
+	v4l2_ctrl_activate(imx585->hdr_gain_ctrl,    imx585->clear_HDR);
+	v4l2_ctrl_activate(imx585->hgc_ctrl,        !imx585->clear_HDR);
+
 
 	if (ctrl_hdlr->error) {
 		ret = ctrl_hdlr->error;
@@ -2566,15 +2175,14 @@ static int imx585_init_controls(struct imx585 *imx585)
 	if (ret)
 		goto error;
 
-	if (imx585->regs->clearHDR) {
-		memcpy(imx585->datasel_th_ctrl->p_cur.p, hdr_thresh_def, sizeof(hdr_thresh_def));
-		memcpy(imx585->datasel_th_ctrl->p_new.p, hdr_thresh_def, sizeof(hdr_thresh_def));
-		memcpy(imx585->gdc_th_ctrl->p_cur.p, grad_thresh_def, sizeof(grad_thresh_def));
-		memcpy(imx585->gdc_th_ctrl->p_new.p, grad_thresh_def, sizeof(grad_thresh_def));
+	memcpy(imx585->datasel_th_ctrl->p_cur.p, hdr_thresh_def, sizeof(hdr_thresh_def));
+	memcpy(imx585->datasel_th_ctrl->p_new.p, hdr_thresh_def, sizeof(hdr_thresh_def));
+	memcpy(imx585->gdc_th_ctrl->p_cur.p, grad_thresh_def, sizeof(grad_thresh_def));
+	memcpy(imx585->gdc_th_ctrl->p_new.p, grad_thresh_def, sizeof(grad_thresh_def));
 
-		imx585->hdr_mode->flags |= V4L2_CTRL_FLAG_UPDATE;
-		imx585->hdr_mode->flags |= V4L2_CTRL_FLAG_MODIFY_LAYOUT;
-	}
+	imx585->hdr_mode->flags |= V4L2_CTRL_FLAG_UPDATE;
+	imx585->hdr_mode->flags |= V4L2_CTRL_FLAG_MODIFY_LAYOUT;
+
 
 	imx585->sd.ctrl_handler = ctrl_hdlr;
 
@@ -2596,55 +2204,10 @@ static void imx585_free_controls(struct imx585 *imx585)
 	mutex_destroy(&imx585->mutex);
 }
 
-static const struct imx585_compatible_data imx585_compatible = {
-	.name = "IMX585",
-	.clearHDR = true,
-	.analog_gain_reg = IMX585_REG_ANALOG_GAIN,
-	.common_regs = {
-		.num_of_regs = ARRAY_SIZE(imx585_common_regs),
-		.regs =  imx585_common_regs,
-	},
-	.clearHDR_common_regs = {
-		.num_of_regs = ARRAY_SIZE(imx585_common_clearHDR_mode),
-		.regs =  imx585_common_clearHDR_mode,
-	},
-	.normal_common_regs = {
-		.num_of_regs = ARRAY_SIZE(imx585_common_normal_mode),
-		.regs =  imx585_common_normal_mode,
-	},
-};
-
-/* Technically, IMX678 supports ClearHDR but critically it doesn't
- * support on-sensor data merge such that it will send out
- * High/Low gain frame which isn't quite supported on libcamera
- * and the current V4L2 arch.
- * As such, this driver will only enable HDR on IMX585.
- */
-static const struct imx585_compatible_data imx678_compatible = {
-	.name = "IMX678",
-	.clearHDR = false,
-	.analog_gain_reg = IMX678_REG_ANALOG_GAIN,
-	.common_regs = {
-		.num_of_regs = ARRAY_SIZE(imx678_common_regs),
-		.regs =  imx678_common_regs,
-	},
-	.clearHDR_common_regs = {
-		.num_of_regs = 0,
-		.regs = NULL
-	},
-	.normal_common_regs = {
-		.num_of_regs = ARRAY_SIZE(imx678_common_normal_mode),
-		.regs =  imx678_common_normal_mode,
-	},
-};
-
-
 static const struct of_device_id imx585_dt_ids[] = {
-	{ .compatible = "sony,imx585", .data = &imx585_compatible },
-	{ .compatible = "sony,imx678", .data = &imx678_compatible },
+	{ .compatible = "sony,imx585"},
 	{ /* sentinel */ }
 };
-
 
 static int imx585_check_hwcfg(struct device *dev, struct imx585 *imx585)
 {
@@ -2723,18 +2286,14 @@ static int imx585_probe(struct i2c_client *client)
 	match = of_match_device(imx585_dt_ids, dev);
 	if (!match)
 		return -ENODEV;
-	imx585->regs =
-		(const struct imx585_compatible_data *)match->data;
-	dev_info(dev, "Driver setup for: %s\n", imx585->regs->name);
+
 	dev_info(dev, "Reading dtoverlay config:\n");
 	imx585->mono = of_property_read_bool(dev->of_node, "mono-mode");
 	if (imx585->mono)
 		dev_info(dev, "Mono Mode Selected, make sure you have the correct sensor variant\n");
 
-	if (imx585->regs->clearHDR) {
-		imx585->clear_HDR = of_property_read_bool(dev->of_node, "clearHDR-mode");
-		dev_info(dev, "ClearHDR: %d\n", imx585->clear_HDR);
-	}
+	imx585->clear_HDR = of_property_read_bool(dev->of_node, "clearHDR-mode");
+	dev_info(dev, "ClearHDR: %d\n", imx585->clear_HDR);
 
 	imx585->sync_mode = 0;
 	ret = of_property_read_u32(dev->of_node, "sync-mode", &sync_mode);
