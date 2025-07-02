@@ -34,7 +34,7 @@
 #define V4L2_CID_IMX585_HDR_GRAD_COMP_L  (V4L2_CID_USER_ASPEED_BASE + 3)
 #define V4L2_CID_IMX585_HDR_GRAD_COMP_H  (V4L2_CID_USER_ASPEED_BASE + 4)
 #define V4L2_CID_IMX585_HDR_GAIN         (V4L2_CID_USER_ASPEED_BASE + 5)
-#define V4L2_CID_IMX585_HGC_GAIN         (V4L2_CID_USER_ASPEED_BASE + 6)
+#define V4L2_CID_IMX585_HCG_GAIN         (V4L2_CID_USER_ASPEED_BASE + 6)
 
 /* Standby or streaming mode */
 #define IMX585_REG_MODE_SELECT          0x3000
@@ -121,7 +121,7 @@
 #define IMX585_REG_ANALOG_GAIN          0x306C
 #define IMX585_REG_FDG_SEL0             0x3030
 #define IMX585_ANA_GAIN_MIN_NORMAL      0
-#define IMX585_ANA_GAIN_MIN_HGC         34
+#define IMX585_ANA_GAIN_MIN_HCG         34
 #define IMX585_ANA_GAIN_MAX_HDR         80
 #define IMX585_ANA_GAIN_MAX_NORMAL      240
 #define IMX585_ANA_GAIN_STEP            1
@@ -717,7 +717,7 @@ struct imx585 {
 	struct v4l2_ctrl *link_freq;
 	struct v4l2_ctrl *exposure;
 	struct v4l2_ctrl *gain;
-	struct v4l2_ctrl *hgc_ctrl;
+	struct v4l2_ctrl *hcg_ctrl;
 	struct v4l2_ctrl *vflip;
 	struct v4l2_ctrl *hflip;
 	struct v4l2_ctrl *vblank;
@@ -741,8 +741,8 @@ struct imx585 {
 	/* Current mode */
 	const struct imx585_mode *mode;
 
-	/* HGC enabled flag*/
-	bool hgc;
+	/* HCG enabled flag*/
+	bool hcg;
 
 	/* Mono mode */
 	bool mono;
@@ -1037,14 +1037,14 @@ static int imx585_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	return 0;
 }
 
-/* For HDR mode, Gain is limited to 0~80 and HGC is disabled
+/* For HDR mode, Gain is limited to 0~80 and HCG is disabled
  * For Normal mode, Gain is limited to 0~240
  */
 static void imx585_update_gain_limits(struct imx585 *imx585)
 {
-		bool hcg_on = imx585->hgc;
+		bool hcg_on = imx585->hcg;
 		bool clear_hdr = imx585->clear_HDR;
-		u32 min = hcg_on ? IMX585_ANA_GAIN_MIN_HGC : IMX585_ANA_GAIN_MIN_NORMAL;
+		u32 min = hcg_on ? IMX585_ANA_GAIN_MIN_HCG : IMX585_ANA_GAIN_MIN_NORMAL;
 		u32 max = clear_hdr ? IMX585_ANA_GAIN_MAX_HDR : IMX585_ANA_GAIN_MAX_NORMAL;
 		u32 cur = imx585->gain->val;
 
@@ -1157,7 +1157,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 			v4l2_ctrl_activate(imx585->gdc_exp_ctrl_h,   imx585->clear_HDR);
 			v4l2_ctrl_activate(imx585->gdc_exp_ctrl_l,   imx585->clear_HDR);
 			v4l2_ctrl_activate(imx585->hdr_gain_ctrl,    imx585->clear_HDR);
-			v4l2_ctrl_activate(imx585->hgc_ctrl,        !imx585->clear_HDR);
+			v4l2_ctrl_activate(imx585->hcg_ctrl,        !imx585->clear_HDR);
 			imx585_update_gain_limits(imx585);
 			if (imx585->mono)
 				code = imx585_get_format_code(imx585, MEDIA_BUS_FMT_Y12_1X12);
@@ -1198,20 +1198,20 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 						    IMX585_REG_SHR, ret);
 		break;
 		}
-	case V4L2_CID_IMX585_HGC_GAIN:
+	case V4L2_CID_IMX585_HCG_GAIN:
 		{
 		if (ctrl->flags & V4L2_CTRL_FLAG_INACTIVE)
 			break;
-		imx585->hgc = ctrl->val;
+		imx585->hcg = ctrl->val;
 		imx585_update_gain_limits(imx585);
 
-		// Set HGC/LCG channel
+		// Set HCG/LCG channel
 		ret = imx585_write_reg_1byte(imx585, IMX585_REG_FDG_SEL0, ctrl->val);
 		if (ret)
 			dev_err_ratelimited(&client->dev,
 					    "Failed to write reg 0x%4.4x. error = %d\n",
 					    IMX585_REG_FDG_SEL0, ret);
-		dev_info(&client->dev, "V4L2_CID_HGC_ENABLE: %d\n", ctrl->val);
+		dev_info(&client->dev, "V4L2_CID_HCG_ENABLE: %d\n", ctrl->val);
 		break;
 		}
 	case V4L2_CID_ANALOGUE_GAIN:
@@ -1219,7 +1219,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		u32 gain = ctrl->val;
 
 		dev_info(&client->dev, "analogue gain = %u (%s)\n",
-			 gain, imx585->hgc ? "HCG" : "LCG");
+			 gain, imx585->hcg ? "HCG" : "LCG");
 
 		ret = imx585_write_reg_2byte(imx585, IMX585_REG_ANALOG_GAIN, gain);
 		if (ret)
@@ -1477,10 +1477,10 @@ static const struct v4l2_ctrl_config imx585_cfg_hdr_gain = {
 	.qmenu = hdr_gain_adder_menu,
 };
 
-static const struct v4l2_ctrl_config imx585_cfg_hgc = {
+static const struct v4l2_ctrl_config imx585_cfg_hcg = {
 	.ops = &imx585_ctrl_ops,
-	.id = V4L2_CID_IMX585_HGC_GAIN,
-	.name = "HGC Enable",
+	.id = V4L2_CID_IMX585_HCG_GAIN,
+	.name = "HCG Enable",
 	.type = V4L2_CTRL_TYPE_BOOLEAN,
 	.min  = 0,
 	.max  = 1,
@@ -2148,8 +2148,8 @@ static int imx585_init_controls(struct imx585 *imx585)
 						       &imx585_cfg_grad_exp_h, NULL);
 	imx585->hdr_gain_ctrl   = v4l2_ctrl_new_custom(ctrl_hdlr,
 						       &imx585_cfg_hdr_gain, NULL);
-	imx585->hgc_ctrl        = v4l2_ctrl_new_custom(ctrl_hdlr,
-						       &imx585_cfg_hgc, NULL);
+	imx585->hcg_ctrl        = v4l2_ctrl_new_custom(ctrl_hdlr,
+						       &imx585_cfg_hcg, NULL);
 
 	v4l2_ctrl_activate(imx585->datasel_th_ctrl,  imx585->clear_HDR);
 	v4l2_ctrl_activate(imx585->datasel_bk_ctrl,  imx585->clear_HDR);
@@ -2157,7 +2157,7 @@ static int imx585_init_controls(struct imx585 *imx585)
 	v4l2_ctrl_activate(imx585->gdc_exp_ctrl_l,   imx585->clear_HDR);
 	v4l2_ctrl_activate(imx585->gdc_exp_ctrl_h,   imx585->clear_HDR);
 	v4l2_ctrl_activate(imx585->hdr_gain_ctrl,    imx585->clear_HDR);
-	v4l2_ctrl_activate(imx585->hgc_ctrl,        !imx585->clear_HDR);
+	v4l2_ctrl_activate(imx585->hcg_ctrl,        !imx585->clear_HDR);
 
 
 	if (ctrl_hdlr->error) {
