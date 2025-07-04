@@ -23,18 +23,13 @@
 #include <media/v4l2-fwnode.h>
 #include <media/v4l2-mediabus.h>
 
-// Support for rpi kernel pre git commit 314a685
-#ifndef MEDIA_BUS_FMT_SENSOR_DATA
-#define MEDIA_BUS_FMT_SENSOR_DATA       0x7002
-#endif
-
-#define V4L2_CID_IMX585_HDR_DATASEL_TH   (V4L2_CID_USER_ASPEED_BASE + 0)
-#define V4L2_CID_IMX585_HDR_DATASEL_BK   (V4L2_CID_USER_ASPEED_BASE + 1)
-#define V4L2_CID_IMX585_HDR_GRAD_TH      (V4L2_CID_USER_ASPEED_BASE + 2)
-#define V4L2_CID_IMX585_HDR_GRAD_COMP_L  (V4L2_CID_USER_ASPEED_BASE + 3)
-#define V4L2_CID_IMX585_HDR_GRAD_COMP_H  (V4L2_CID_USER_ASPEED_BASE + 4)
-#define V4L2_CID_IMX585_HDR_GAIN         (V4L2_CID_USER_ASPEED_BASE + 5)
-#define V4L2_CID_IMX585_HCG_GAIN         (V4L2_CID_USER_ASPEED_BASE + 6)
+#define V4L2_CID_IMX585_HDR_DATASEL_TH   (V4L2_CID_USER_IMX585_BASE + 0)
+#define V4L2_CID_IMX585_HDR_DATASEL_BK   (V4L2_CID_USER_IMX585_BASE + 1)
+#define V4L2_CID_IMX585_HDR_GRAD_TH      (V4L2_CID_USER_IMX585_BASE + 2)
+#define V4L2_CID_IMX585_HDR_GRAD_COMP_L  (V4L2_CID_USER_IMX585_BASE + 3)
+#define V4L2_CID_IMX585_HDR_GRAD_COMP_H  (V4L2_CID_USER_IMX585_BASE + 4)
+#define V4L2_CID_IMX585_HDR_GAIN         (V4L2_CID_USER_IMX585_BASE + 5)
+#define V4L2_CID_IMX585_HCG_GAIN         (V4L2_CID_USER_IMX585_BASE + 6)
 
 /* Standby or streaming mode */
 #define IMX585_REG_MODE_SELECT          0x3000
@@ -86,7 +81,7 @@
 /* SHR internal */
 #define IMX585_REG_SHR                  0x3050
 #define IMX585_SHR_MIN                  8
-#define IMX585_SHR_MIN_CLEARHDR         10
+#define IMX585_SHR_MIN_HDR              10
 #define IMX585_SHR_MAX                  0xfffff
 
 /* Exposure control */
@@ -131,17 +126,7 @@
 #define IMX585_FLIP_WINMODEH            0x3020
 #define IMX585_FLIP_WINMODEV            0x3021
 
-/* Embedded metadata stream structure */
-#define IMX585_EMBEDDED_LINE_WIDTH      16384
-#define IMX585_NUM_EMBEDDED_LINES       1
-
 #define IMX585_PIXEL_RATE               74250000
-
-enum pad_types {
-	IMAGE_PAD,
-	METADATA_PAD,
-	NUM_PADS
-};
 
 /* imx585 native and active pixel array size. */
 #define IMX585_NATIVE_WIDTH         3856U
@@ -576,6 +561,7 @@ static const struct imx585_reg mode_1080_regs_12bit[] = {
 	{0x3023, 0x01}, // MDBIT 12-bit
 	{0x30D5, 0x02}, // DIG_CLP_VSTART binning
 };
+
 /* IMX585 Register List - END*/
 
 /* For Mode List:
@@ -643,7 +629,6 @@ struct imx585_mode supported_modes[] = {
 	},
 };
 
-
 /*
  * The supported formats.
  * This table MUST contain 4 entries per format, to cover the various flip
@@ -694,7 +679,7 @@ static const char * const imx585_supply_name[] = {
 
 struct imx585 {
 	struct v4l2_subdev sd;
-	struct media_pad pad[NUM_PADS];
+	struct media_pad pad;
 
 	unsigned int fmt_code;
 
@@ -781,7 +766,6 @@ struct imx585 {
 	bool common_regs_written;
 };
 
-
 static inline struct imx585 *to_imx585(struct v4l2_subdev *_sd)
 {
 	return container_of(_sd, struct imx585, sd);
@@ -826,6 +810,7 @@ static inline void get_mode_table(struct imx585 *imx585, unsigned int code,
 		}
 	}
 }
+
 /* ------------------------------------------------------------------
  * Optional IR-cut helper
  * ------------------------------------------------------------------
@@ -848,7 +833,6 @@ static int imx585_ircut_set(struct imx585 *imx585, int on)
 {
 	return imx585_ircut_write(imx585, on ? 0x01 : 0x00);
 }
-
 
 /* Read registers up to 2 at a time */
 static int imx585_read_reg(struct imx585 *imx585, u16 reg, u32 len, u32 *val)
@@ -986,7 +970,6 @@ static u32 imx585_get_format_code(struct imx585 *imx585, u32 code)
 		if (codes_normal[i] == code)
 			break;
 	return codes_normal[i];
-
 }
 
 static void imx585_set_default_format(struct imx585 *imx585)
@@ -1003,9 +986,7 @@ static int imx585_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	struct imx585 *imx585 = to_imx585(sd);
 	struct v4l2_mbus_framefmt *try_fmt_img =
-		v4l2_subdev_state_get_format(fh->state, IMAGE_PAD);
-	struct v4l2_mbus_framefmt *try_fmt_meta =
-		v4l2_subdev_state_get_format(fh->state, METADATA_PAD);
+		v4l2_subdev_state_get_format(fh->state, 0);
 	struct v4l2_rect *try_crop;
 
 	mutex_lock(&imx585->mutex);
@@ -1020,14 +1001,8 @@ static int imx585_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 	try_fmt_img->field = V4L2_FIELD_NONE;
 
-	/* Initialize try_fmt for the embedded metadata pad */
-	try_fmt_meta->width = IMX585_EMBEDDED_LINE_WIDTH;
-	try_fmt_meta->height = IMX585_NUM_EMBEDDED_LINES;
-	try_fmt_meta->code = MEDIA_BUS_FMT_SENSOR_DATA;
-	try_fmt_meta->field = V4L2_FIELD_NONE;
-
 	/* Initialize try_crop */
-	try_crop = v4l2_subdev_state_get_crop(fh->state, IMAGE_PAD);
+	try_crop = v4l2_subdev_state_get_crop(fh->state, 0);
 	try_crop->left = IMX585_PIXEL_ARRAY_LEFT;
 	try_crop->top = IMX585_PIXEL_ARRAY_TOP;
 	try_crop->width = IMX585_PIXEL_ARRAY_WIDTH;
@@ -1043,25 +1018,24 @@ static int imx585_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
  */
 static void imx585_update_gain_limits(struct imx585 *imx585)
 {
-		bool hcg_on = imx585->hcg;
-		bool clear_hdr = imx585->clear_HDR;
-		u32 min = hcg_on ? IMX585_ANA_GAIN_MIN_HCG : IMX585_ANA_GAIN_MIN_NORMAL;
-		u32 max = clear_hdr ? IMX585_ANA_GAIN_MAX_HDR : IMX585_ANA_GAIN_MAX_NORMAL;
-		u32 cur = imx585->gain->val;
+	bool hcg_on = imx585->hcg;
+	bool clear_hdr = imx585->clear_HDR;
+	u32 min = hcg_on ? IMX585_ANA_GAIN_MIN_HCG : IMX585_ANA_GAIN_MIN_NORMAL;
+	u32 max = clear_hdr ? IMX585_ANA_GAIN_MAX_HDR : IMX585_ANA_GAIN_MAX_NORMAL;
+	u32 cur = imx585->gain->val;
 
-		__v4l2_ctrl_modify_range(imx585->gain,
-					 min, max,
-					 IMX585_ANA_GAIN_STEP,
-					 clamp(cur, min, max));
+	__v4l2_ctrl_modify_range(imx585->gain,
+				 min, max,
+				 IMX585_ANA_GAIN_STEP,
+				 clamp(cur, min, max));
 
-		if (cur < min || cur > max)
-			__v4l2_ctrl_s_ctrl(imx585->gain,
-					   clamp(cur, min, max));
+	if (cur < min || cur > max)
+		__v4l2_ctrl_s_ctrl(imx585->gain,
+				   clamp(cur, min, max));
 }
 
 static void imx585_update_hmax(struct imx585 *imx585)
 {
-
 	struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
 
 	const u32 base_4lane = HMAX_table_4lane_4K[imx585->link_freq_idx];
@@ -1085,7 +1059,6 @@ static void imx585_update_hmax(struct imx585 *imx585)
 		supported_modes[i].default_VMAX = v;
 		dev_info(&client->dev, "\tvmax: %lld x hmax: %d\n", v, h);
 	}
-
 }
 
 static void imx585_set_framing_limits(struct imx585 *imx585)
@@ -1127,12 +1100,11 @@ static void imx585_set_framing_limits(struct imx585 *imx585)
 	__v4l2_ctrl_s_ctrl(imx585->vblank, mode->default_VMAX - mode->height);
 
 	__v4l2_ctrl_modify_range(imx585->exposure, IMX585_EXPOSURE_MIN,
-			 imx585->VMAX - IMX585_SHR_MIN_CLEARHDR, 1,
-				IMX585_EXPOSURE_DEFAULT);
+				 imx585->VMAX - IMX585_SHR_MIN_HDR, 1,
+				 IMX585_EXPOSURE_DEFAULT);
 	dev_info(&client->dev, "default vmax: %lld x hmax: %d\n", mode->min_VMAX, mode->min_HMAX);
 	dev_info(&client->dev, "Setting default HBLANK : %llu, VBLANK : %llu PixelRate: %lld\n",
 		 default_hblank, mode->default_VMAX - mode->height, pixel_rate);
-
 }
 
 static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
@@ -1166,10 +1138,10 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 				code = imx585_get_format_code(imx585, MEDIA_BUS_FMT_SRGGB12_1X12);
 			get_mode_table(imx585, code, &mode_list, &num_modes);
 			imx585->mode = v4l2_find_nearest_size(mode_list,
-								  num_modes,
-								  width, height,
-								  imx585->mode->width,
-								  imx585->mode->height);
+							      num_modes,
+							      width, height,
+							      imx585->mode->width,
+							      imx585->mode->height);
 			imx585_set_framing_limits(imx585);
 		}
 		break;
@@ -1231,7 +1203,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_VBLANK:
 		{
 			u32 current_exposure = imx585->exposure->cur.val;
-			u32 minSHR = (imx585->clear_HDR) ? IMX585_SHR_MIN_CLEARHDR:IMX585_SHR_MIN;
+			u32 min_SHR = (imx585->clear_HDR) ? IMX585_SHR_MIN_HDR : IMX585_SHR_MIN;
 			/*
 			 * The VBLANK control may change the limits of usable exposure, so check
 			 * and adjust if necessary.
@@ -1242,15 +1214,15 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 			 * modifying the range and make sure we are not exceed the new maximum.
 			 */
 			current_exposure = clamp_t(u32, current_exposure, IMX585_EXPOSURE_MIN,
-						   imx585->VMAX - minSHR);
+						   imx585->VMAX - min_SHR);
 			__v4l2_ctrl_modify_range(imx585->exposure, IMX585_EXPOSURE_MIN,
-						 imx585->VMAX - minSHR, 1,
+						 imx585->VMAX - min_SHR, 1,
 						 current_exposure);
 
 			dev_info(&client->dev, "V4L2_CID_VBLANK : %d\n", ctrl->val);
 			dev_info(&client->dev, "\tVMAX:%d, HMAX:%d\n", imx585->VMAX, imx585->HMAX);
 			dev_info(&client->dev, "Update exposure limits: max:%d, min:%d, current:%d\n",
-				 imx585->VMAX - minSHR,
+				 imx585->VMAX - min_SHR,
 				 IMX585_EXPOSURE_MIN, current_exposure);
 
 			ret = imx585_write_reg_3byte(imx585, IMX585_REG_VMAX, imx585->VMAX);
@@ -1497,45 +1469,35 @@ static int imx585_enum_mbus_code(struct v4l2_subdev *sd,
 	unsigned int entries;
 	const u32 *tbl;
 
-	if (code->pad >= NUM_PADS)
-		return -EINVAL;
-
-	if (code->pad == IMAGE_PAD) {
-		if (imx585->mono) {
-			if (imx585->clear_HDR) {
-				if (code->index > 1)
-					return -EINVAL;
-				code->code = mono_codes[code->index];
-				return 0;
-			}
-			/* HDR off: expose Y12 only */
-			if (code->index)
+	if (imx585->mono) {
+		if (imx585->clear_HDR) {
+			if (code->index > 1)
 				return -EINVAL;
-
-			code->code = MEDIA_BUS_FMT_Y12_1X12;
+			code->code = mono_codes[code->index];
 			return 0;
 		}
-
-		if (imx585->clear_HDR) {
-			tbl     = codes_clearhdr;  /* << 16bit + 12bit */
-			entries = ARRAY_SIZE(codes_clearhdr) / 4;
-		} else {
-			tbl     = codes_normal;    /* << ONLY 12bit */
-			entries = ARRAY_SIZE(codes_normal) / 4;
-		}
-
-		if (code->index >= entries)
+		/* HDR off: expose Y12 only */
+		if (code->index)
 			return -EINVAL;
 
-		code->code = imx585_get_format_code(imx585, tbl[code->index * 4]);
+		code->code = MEDIA_BUS_FMT_Y12_1X12;
 		return 0;
 	}
-	/* --- Metadata pad ------------------------------------------------- */
-	if (code->index)
+
+	if (imx585->clear_HDR) {
+		tbl     = codes_clearhdr;  /* << 16bit + 12bit */
+		entries = ARRAY_SIZE(codes_clearhdr) / 4;
+	} else {
+		tbl     = codes_normal;    /* << ONLY 12bit */
+		entries = ARRAY_SIZE(codes_normal) / 4;
+	}
+
+	if (code->index >= entries)
 		return -EINVAL;
 
-	code->code = MEDIA_BUS_FMT_SENSOR_DATA;
+	code->code = imx585_get_format_code(imx585, tbl[code->index * 4]);
 	return 0;
+
 }
 
 static int imx585_enum_frame_size(struct v4l2_subdev *sd,
@@ -1544,34 +1506,22 @@ static int imx585_enum_frame_size(struct v4l2_subdev *sd,
 {
 	struct imx585 *imx585 = to_imx585(sd);
 
-	if (fse->pad >= NUM_PADS)
+	const struct imx585_mode *mode_list;
+	unsigned int num_modes;
+
+	get_mode_table(imx585, fse->code, &mode_list, &num_modes);
+
+	if (fse->index >= num_modes)
 		return -EINVAL;
 
-	if (fse->pad == IMAGE_PAD) {
-		const struct imx585_mode *mode_list;
-		unsigned int num_modes;
+	if (fse->code != imx585_get_format_code(imx585, fse->code))
+		return -EINVAL;
 
-		get_mode_table(imx585, fse->code, &mode_list, &num_modes);
+	fse->min_width = mode_list[fse->index].width;
+	fse->max_width = fse->min_width;
+	fse->min_height = mode_list[fse->index].height;
+	fse->max_height = fse->min_height;
 
-		if (fse->index >= num_modes)
-			return -EINVAL;
-
-		if (fse->code != imx585_get_format_code(imx585, fse->code))
-			return -EINVAL;
-
-		fse->min_width = mode_list[fse->index].width;
-		fse->max_width = fse->min_width;
-		fse->min_height = mode_list[fse->index].height;
-		fse->max_height = fse->min_height;
-	} else {
-		if (fse->code != MEDIA_BUS_FMT_SENSOR_DATA || fse->index > 0)
-			return -EINVAL;
-
-		fse->min_width = IMX585_EMBEDDED_LINE_WIDTH;
-		fse->max_width = fse->min_width;
-		fse->min_height = IMX585_NUM_EMBEDDED_LINES;
-		fse->max_height = fse->min_height;
-	}
 
 	return 0;
 }
@@ -1596,47 +1546,29 @@ static void imx585_update_image_pad_format(struct imx585 *imx585,
 	imx585_reset_colorspace(mode, &fmt->format);
 }
 
-static void imx585_update_metadata_pad_format(struct v4l2_subdev_format *fmt)
-{
-	fmt->format.width = IMX585_EMBEDDED_LINE_WIDTH;
-	fmt->format.height = IMX585_NUM_EMBEDDED_LINES;
-	fmt->format.code = MEDIA_BUS_FMT_SENSOR_DATA;
-	fmt->format.field = V4L2_FIELD_NONE;
-}
-
 static int imx585_get_pad_format(struct v4l2_subdev *sd,
 				 struct v4l2_subdev_state *sd_state,
 				 struct v4l2_subdev_format *fmt)
 {
 	struct imx585 *imx585 = to_imx585(sd);
 
-	if (fmt->pad >= NUM_PADS)
-		return -EINVAL;
-
 	mutex_lock(&imx585->mutex);
 
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
 		struct v4l2_mbus_framefmt *try_fmt =
-			v4l2_subdev_state_get_format(sd_state, fmt->pad);
+			v4l2_subdev_state_get_format(sd_state, 0);
 		/* update the code which could change due to vflip or hflip: */
-		try_fmt->code = fmt->pad == IMAGE_PAD ?
-				imx585_get_format_code(imx585, try_fmt->code) :
-				MEDIA_BUS_FMT_SENSOR_DATA;
+		try_fmt->code = imx585_get_format_code(imx585, try_fmt->code);
 		fmt->format = *try_fmt;
 	} else {
-		if (fmt->pad == IMAGE_PAD) {
-			imx585_update_image_pad_format(imx585, imx585->mode, fmt);
-			fmt->format.code =
-				   imx585_get_format_code(imx585, imx585->fmt_code);
-		} else {
-			imx585_update_metadata_pad_format(fmt);
-		}
+		imx585_update_image_pad_format(imx585, imx585->mode, fmt);
+		fmt->format.code =
+			   imx585_get_format_code(imx585, imx585->fmt_code);
 	}
 
 	mutex_unlock(&imx585->mutex);
 	return 0;
 }
-
 
 static int imx585_set_pad_format(struct v4l2_subdev *sd,
 				 struct v4l2_subdev_state *sd_state,
@@ -1646,42 +1578,31 @@ static int imx585_set_pad_format(struct v4l2_subdev *sd,
 	const struct imx585_mode *mode;
 	struct imx585 *imx585 = to_imx585(sd);
 
-	if (fmt->pad >= NUM_PADS)
-		return -EINVAL;
-
 	mutex_lock(&imx585->mutex);
 
-	if (fmt->pad == IMAGE_PAD) {
-		const struct imx585_mode *mode_list;
-		unsigned int num_modes;
 
-		/* Bayer order varies with flips */
-		fmt->format.code = imx585_get_format_code(imx585, fmt->format.code);
-		get_mode_table(imx585, fmt->format.code, &mode_list, &num_modes);
-		mode = v4l2_find_nearest_size(mode_list,
-						  num_modes,
-						  width, height,
-						  fmt->format.width,
-						  fmt->format.height);
-		imx585_update_image_pad_format(imx585, mode, fmt);
-		if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
-			framefmt = v4l2_subdev_state_get_format(sd_state, fmt->pad);
-			*framefmt = fmt->format;
-		} else if (imx585->mode != mode ||
-			   imx585->fmt_code != fmt->format.code) {
-			imx585->mode = mode;
-			imx585->fmt_code = fmt->format.code;
-			imx585_set_framing_limits(imx585);
-		}
-	} else {
-		if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
-			framefmt = v4l2_subdev_state_get_format(sd_state, fmt->pad);
-			*framefmt = fmt->format;
-		} else {
-			/* Only one embedded data mode is supported */
-			imx585_update_metadata_pad_format(fmt);
-		}
+	const struct imx585_mode *mode_list;
+	unsigned int num_modes;
+
+	/* Bayer order varies with flips */
+	fmt->format.code = imx585_get_format_code(imx585, fmt->format.code);
+	get_mode_table(imx585, fmt->format.code, &mode_list, &num_modes);
+	mode = v4l2_find_nearest_size(mode_list,
+				      num_modes,
+				      width, height,
+				      fmt->format.width,
+				      fmt->format.height);
+	imx585_update_image_pad_format(imx585, mode, fmt);
+	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
+		framefmt = v4l2_subdev_state_get_format(sd_state, 0);
+		*framefmt = fmt->format;
+	} else if (imx585->mode != mode ||
+		   imx585->fmt_code != fmt->format.code) {
+		imx585->mode = mode;
+		imx585->fmt_code = fmt->format.code;
+		imx585_set_framing_limits(imx585);
 	}
+
 
 	mutex_unlock(&imx585->mutex);
 
@@ -1690,12 +1611,12 @@ static int imx585_set_pad_format(struct v4l2_subdev *sd,
 
 static const struct v4l2_rect *
 __imx585_get_pad_crop(struct imx585 *imx585,
-			  struct v4l2_subdev_state *sd_state,
-			  unsigned int pad, enum v4l2_subdev_format_whence which)
+		      struct v4l2_subdev_state *sd_state,
+		      unsigned int pad, enum v4l2_subdev_format_whence which)
 {
 	switch (which) {
 	case V4L2_SUBDEV_FORMAT_TRY:
-		return v4l2_subdev_state_get_crop(sd_state, IMAGE_PAD);
+		return v4l2_subdev_state_get_crop(sd_state, 0);
 	case V4L2_SUBDEV_FORMAT_ACTIVE:
 		return &imx585->mode->crop;
 	}
@@ -1720,7 +1641,7 @@ static int imx585_start_streaming(struct imx585 *imx585)
 		imx585_write_reg_1byte(imx585, IMX585_INCK_SEL, imx585->inck_sel_val);
 		imx585_write_reg_2byte(imx585, IMX585_REG_BLKLEVEL, IMX585_BLKLEVEL_DEFAULT);
 		imx585_write_reg_1byte(imx585, IMX585_DATARATE_SEL,
-					   link_freqs_reg_value[imx585->link_freq_idx]);
+				       link_freqs_reg_value[imx585->link_freq_idx]);
 
 		if (imx585->lane_count == 2)
 			imx585_write_reg_1byte(imx585, IMX585_LANEMODE, 0x01);
@@ -1804,7 +1725,6 @@ static int imx585_start_streaming(struct imx585 *imx585)
 		}
 		dev_info(&client->dev, "normal_regs_written\n");
 	}
-
 
 	/* Disable digital clamp */
 	imx585_write_reg_1byte(imx585, IMX585_REG_DIGITAL_CLAMP, 0);
@@ -1902,7 +1822,7 @@ static int imx585_power_on(struct device *dev)
 	int ret;
 
 	ret = regulator_bulk_enable(imx585_NUM_SUPPLIES,
-					imx585->supplies);
+				    imx585->supplies);
 	if (ret) {
 		dev_err(&client->dev, "%s: failed to enable regulators\n",
 			__func__);
@@ -1918,7 +1838,7 @@ static int imx585_power_on(struct device *dev)
 
 	gpiod_set_value_cansleep(imx585->reset_gpio, 1);
 	usleep_range(IMX585_XCLR_MIN_DELAY_US,
-			 IMX585_XCLR_MIN_DELAY_US + IMX585_XCLR_DELAY_RANGE_US);
+		     IMX585_XCLR_MIN_DELAY_US + IMX585_XCLR_DELAY_RANGE_US);
 
 	return 0;
 
@@ -1998,7 +1918,7 @@ static int imx585_check_module_exists(struct imx585 *imx585)
 
 	/* We don't actually have a CHIP ID register so we try to read from BLKLEVEL instead*/
 	ret = imx585_read_reg(imx585, IMX585_REG_BLKLEVEL,
-				  1, &val);
+			      1, &val);
 	if (ret) {
 		dev_err(&client->dev, "failed to read chip reg, with error %d\n", ret);
 		return ret;
@@ -2135,8 +2055,8 @@ static int imx585_init_controls(struct imx585 *imx585)
 	}
 
 	imx585->hdr_mode = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops,
-						 V4L2_CID_WIDE_DYNAMIC_RANGE,
-						 0, 1, 1, 0);
+					     V4L2_CID_WIDE_DYNAMIC_RANGE,
+					     0, 1, 1, 0);
 	imx585->datasel_th_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr,
 						       &imx585_cfg_datasel_th, NULL);
 	imx585->datasel_bk_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr,
@@ -2160,7 +2080,6 @@ static int imx585_init_controls(struct imx585 *imx585)
 	v4l2_ctrl_activate(imx585->hdr_gain_ctrl,    imx585->clear_HDR);
 	v4l2_ctrl_activate(imx585->hcg_ctrl,        !imx585->clear_HDR);
 
-
 	if (ctrl_hdlr->error) {
 		ret = ctrl_hdlr->error;
 		dev_err(&client->dev, "%s control init failed (%d)\n",
@@ -2183,7 +2102,6 @@ static int imx585_init_controls(struct imx585 *imx585)
 
 	imx585->hdr_mode->flags |= V4L2_CTRL_FLAG_UPDATE;
 	imx585->hdr_mode->flags |= V4L2_CTRL_FLAG_MODIFY_LAYOUT;
-
 
 	imx585->sd.ctrl_handler = ctrl_hdlr;
 
@@ -2305,8 +2223,7 @@ static int imx585_probe(struct i2c_client *client)
 		}
 		imx585->sync_mode = sync_mode;
 	} else if (ret != -EINVAL) {          /* property present but bad */
-		dev_err(dev, "sync-mode malformed (%pe)\n",
-				ERR_PTR(ret));
+		dev_err(dev, "sync-mode malformed (%pe)\n", ERR_PTR(ret));
 		return ret;
 	}
 	dev_info(dev, "Sync Mode: %s\n", sync_mode_menu[imx585->sync_mode]);
@@ -2337,7 +2254,7 @@ static int imx585_probe(struct i2c_client *client)
 		return -EINVAL;
 	}
 
-	dev_info(dev, "XCLK %u Hz → INCK_SEL 0x%02x\n",
+	dev_info(dev, "XCLK %u Hz --> INCK_SEL 0x%02x\n",
 		 imx585->xclk_freq, imx585->inck_sel_val);
 
 	ret = imx585_get_regulators(imx585);
@@ -2348,7 +2265,7 @@ static int imx585_probe(struct i2c_client *client)
 
 	/* Request optional enable pin */
 	imx585->reset_gpio = devm_gpiod_get_optional(dev, "reset",
-							 GPIOD_OUT_HIGH);
+						     GPIOD_OUT_HIGH);
 
 	/*
 	 * The sensor must be powered for imx585_check_module_exists()
@@ -2404,10 +2321,9 @@ static int imx585_probe(struct i2c_client *client)
 	imx585->sd.entity.function = MEDIA_ENT_F_CAM_SENSOR;
 
 	/* Initialize source pads */
-	imx585->pad[IMAGE_PAD].flags = MEDIA_PAD_FL_SOURCE;
-	imx585->pad[METADATA_PAD].flags = MEDIA_PAD_FL_SOURCE;
+	imx585->pad.flags = MEDIA_PAD_FL_SOURCE;
 
-	ret = media_entity_pads_init(&imx585->sd.entity, NUM_PADS, imx585->pad);
+	ret = media_entity_pads_init(&imx585->sd.entity, 1, &imx585->pad);
 	if (ret) {
 		dev_err(dev, "failed to init entity pads: %d\n", ret);
 		goto error_handler_free;
