@@ -1458,6 +1458,138 @@ static const struct v4l2_ctrl_config imx585_cfg_hcg = {
 	.def  = 0,
 };
 
+/* Initialize control handlers */
+static int imx585_init_controls(struct imx585 *imx585)
+{
+	struct v4l2_ctrl_handler *ctrl_hdlr;
+	struct v4l2_fwnode_device_properties props;
+	int ret;
+
+	ctrl_hdlr = &imx585->ctrl_handler;
+	ret = v4l2_ctrl_handler_init(ctrl_hdlr, 32);
+	if (ret)
+		return ret;
+
+	mutex_init(&imx585->mutex);
+	ctrl_hdlr->lock = &imx585->mutex;
+
+	/*
+	 * Create the controls here, but mode specific limits are setup
+	 * in the imx585_set_framing_limits() call below.
+	 */
+	/* By default, PIXEL_RATE is read only */
+	imx585->pixel_rate = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops,
+					       V4L2_CID_PIXEL_RATE,
+					       0xffff,
+					       0xffff, 1,
+					       0xffff);
+
+	/* LINK_FREQ is also read only */
+	imx585->link_freq =
+		v4l2_ctrl_new_int_menu(ctrl_hdlr, &imx585_ctrl_ops,
+				       V4L2_CID_LINK_FREQ, 0, 0,
+				       &link_freqs[imx585->link_freq_idx]);
+	if (imx585->link_freq)
+		imx585->link_freq->flags |= V4L2_CTRL_FLAG_READ_ONLY;
+
+	imx585->vblank = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops,
+					   V4L2_CID_VBLANK, 0, 0xfffff, 1, 0);
+	imx585->hblank = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops,
+					   V4L2_CID_HBLANK, 0, 0xffff, 1, 0);
+	imx585->blacklevel = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops,
+					       V4L2_CID_BRIGHTNESS, 0, 0xffff, 1,
+					       IMX585_BLKLEVEL_DEFAULT);
+
+	imx585->exposure = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops,
+					     V4L2_CID_EXPOSURE,
+					     IMX585_EXPOSURE_MIN,
+					     IMX585_EXPOSURE_MAX,
+					     IMX585_EXPOSURE_STEP,
+					     IMX585_EXPOSURE_DEFAULT);
+
+	imx585->gain = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops, V4L2_CID_ANALOGUE_GAIN,
+					 IMX585_ANA_GAIN_MIN_NORMAL, IMX585_ANA_GAIN_MAX_NORMAL,
+					 IMX585_ANA_GAIN_STEP, IMX585_ANA_GAIN_DEFAULT);
+
+	imx585->hflip = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops, V4L2_CID_HFLIP, 0, 1, 1, 0);
+	imx585->vflip = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops, V4L2_CID_VFLIP, 0, 1, 1, 0);
+
+	if (imx585->has_ircut) {
+		imx585->ircut_ctrl =
+			v4l2_ctrl_new_std(&imx585->ctrl_handler, &imx585_ctrl_ops,
+					  V4L2_CID_BAND_STOP_FILTER,
+					  0, 1, 1, 1);
+	}
+
+	imx585->hdr_mode = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops,
+					     V4L2_CID_WIDE_DYNAMIC_RANGE,
+					     0, 1, 1, 0);
+	imx585->datasel_th_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr,
+						       &imx585_cfg_datasel_th, NULL);
+	imx585->datasel_bk_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr,
+						       &imx585_cfg_datasel_bk, NULL);
+	imx585->gdc_th_ctrl     = v4l2_ctrl_new_custom(ctrl_hdlr,
+						       &imx585_cfg_grad_th, NULL);
+	imx585->gdc_exp_ctrl_l  = v4l2_ctrl_new_custom(ctrl_hdlr,
+						       &imx585_cfg_grad_exp_l, NULL);
+	imx585->gdc_exp_ctrl_h  = v4l2_ctrl_new_custom(ctrl_hdlr,
+						       &imx585_cfg_grad_exp_h, NULL);
+	imx585->hdr_gain_ctrl   = v4l2_ctrl_new_custom(ctrl_hdlr,
+						       &imx585_cfg_hdr_gain, NULL);
+	imx585->hcg_ctrl        = v4l2_ctrl_new_custom(ctrl_hdlr,
+						       &imx585_cfg_hcg, NULL);
+
+	v4l2_ctrl_activate(imx585->datasel_th_ctrl,  imx585->clear_hdr);
+	v4l2_ctrl_activate(imx585->datasel_bk_ctrl,  imx585->clear_hdr);
+	v4l2_ctrl_activate(imx585->gdc_th_ctrl,      imx585->clear_hdr);
+	v4l2_ctrl_activate(imx585->gdc_exp_ctrl_l,   imx585->clear_hdr);
+	v4l2_ctrl_activate(imx585->gdc_exp_ctrl_h,   imx585->clear_hdr);
+	v4l2_ctrl_activate(imx585->hdr_gain_ctrl,    imx585->clear_hdr);
+	v4l2_ctrl_activate(imx585->hcg_ctrl,        !imx585->clear_hdr);
+
+	if (ctrl_hdlr->error) {
+		ret = ctrl_hdlr->error;
+		dev_err(imx585->clientdev, "%s control init failed (%d)\n",
+			__func__, ret);
+		goto error;
+	}
+
+	ret = v4l2_fwnode_device_parse(imx585->clientdev, &props);
+	if (ret)
+		goto error;
+
+	ret = v4l2_ctrl_new_fwnode_properties(ctrl_hdlr, &imx585_ctrl_ops, &props);
+	if (ret)
+		goto error;
+
+	memcpy(imx585->datasel_th_ctrl->p_cur.p, hdr_thresh_def, sizeof(hdr_thresh_def));
+	memcpy(imx585->datasel_th_ctrl->p_new.p, hdr_thresh_def, sizeof(hdr_thresh_def));
+	memcpy(imx585->gdc_th_ctrl->p_cur.p, grad_thresh_def, sizeof(grad_thresh_def));
+	memcpy(imx585->gdc_th_ctrl->p_new.p, grad_thresh_def, sizeof(grad_thresh_def));
+
+	imx585->hdr_mode->flags |= V4L2_CTRL_FLAG_UPDATE;
+	imx585->hdr_mode->flags |= V4L2_CTRL_FLAG_MODIFY_LAYOUT;
+
+	imx585->sd.ctrl_handler = ctrl_hdlr;
+
+	/* Setup exposure and frame/line length limits. */
+	imx585_set_framing_limits(imx585);
+
+	return 0;
+
+error:
+	v4l2_ctrl_handler_free(ctrl_hdlr);
+	mutex_destroy(&imx585->mutex);
+
+	return ret;
+}
+
+static void imx585_free_controls(struct imx585 *imx585)
+{
+	v4l2_ctrl_handler_free(imx585->sd.ctrl_handler);
+	mutex_destroy(&imx585->mutex);
+}
+
 static int imx585_enum_mbus_code(struct v4l2_subdev *sd,
 				 struct v4l2_subdev_state *sd_state,
 				 struct v4l2_subdev_mbus_code_enum *code)
@@ -1891,37 +2023,6 @@ error:
 	return ret;
 }
 
-static int imx585_get_regulators(struct imx585 *imx585)
-{
-	unsigned int i;
-
-	for (i = 0; i < imx585_NUM_SUPPLIES; i++)
-		imx585->supplies[i].supply = imx585_supply_name[i];
-
-	return devm_regulator_bulk_get(imx585->clientdev,
-					   imx585_NUM_SUPPLIES,
-					   imx585->supplies);
-}
-
-/* Verify chip ID */
-static int imx585_check_module_exists(struct imx585 *imx585)
-{
-	int ret;
-	u32 val;
-
-	/* We don't actually have a CHIP ID register so we try to read from BLKLEVEL instead*/
-	ret = imx585_read_reg(imx585, IMX585_REG_BLKLEVEL,
-			      1, &val);
-	if (ret) {
-		dev_err(imx585->clientdev, "failed to read chip reg, with error %d\n", ret);
-		return ret;
-	}
-
-	dev_info(imx585->clientdev, "Reg read success, Device found\n");
-
-	return 0;
-}
-
 static int imx585_get_selection(struct v4l2_subdev *sd,
 				struct v4l2_subdev_state *sd_state,
 				struct v4l2_subdev_selection *sel)
@@ -1983,143 +2084,6 @@ static const struct v4l2_subdev_internal_ops imx585_internal_ops = {
 	.open = imx585_open,
 };
 
-/* Initialize control handlers */
-static int imx585_init_controls(struct imx585 *imx585)
-{
-	struct v4l2_ctrl_handler *ctrl_hdlr;
-	struct v4l2_fwnode_device_properties props;
-	int ret;
-
-	ctrl_hdlr = &imx585->ctrl_handler;
-	ret = v4l2_ctrl_handler_init(ctrl_hdlr, 32);
-	if (ret)
-		return ret;
-
-	mutex_init(&imx585->mutex);
-	ctrl_hdlr->lock = &imx585->mutex;
-
-	/*
-	 * Create the controls here, but mode specific limits are setup
-	 * in the imx585_set_framing_limits() call below.
-	 */
-	/* By default, PIXEL_RATE is read only */
-	imx585->pixel_rate = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops,
-					       V4L2_CID_PIXEL_RATE,
-					       0xffff,
-					       0xffff, 1,
-					       0xffff);
-
-	/* LINK_FREQ is also read only */
-	imx585->link_freq =
-		v4l2_ctrl_new_int_menu(ctrl_hdlr, &imx585_ctrl_ops,
-				       V4L2_CID_LINK_FREQ, 0, 0,
-				       &link_freqs[imx585->link_freq_idx]);
-	if (imx585->link_freq)
-		imx585->link_freq->flags |= V4L2_CTRL_FLAG_READ_ONLY;
-
-	imx585->vblank = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops,
-					   V4L2_CID_VBLANK, 0, 0xfffff, 1, 0);
-	imx585->hblank = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops,
-					   V4L2_CID_HBLANK, 0, 0xffff, 1, 0);
-	imx585->blacklevel = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops,
-					       V4L2_CID_BRIGHTNESS, 0, 0xffff, 1,
-					       IMX585_BLKLEVEL_DEFAULT);
-
-	imx585->exposure = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops,
-					     V4L2_CID_EXPOSURE,
-					     IMX585_EXPOSURE_MIN,
-					     IMX585_EXPOSURE_MAX,
-					     IMX585_EXPOSURE_STEP,
-					     IMX585_EXPOSURE_DEFAULT);
-
-	imx585->gain = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops, V4L2_CID_ANALOGUE_GAIN,
-					 IMX585_ANA_GAIN_MIN_NORMAL, IMX585_ANA_GAIN_MAX_NORMAL,
-					 IMX585_ANA_GAIN_STEP, IMX585_ANA_GAIN_DEFAULT);
-
-	imx585->hflip = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops, V4L2_CID_HFLIP, 0, 1, 1, 0);
-	imx585->vflip = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops, V4L2_CID_VFLIP, 0, 1, 1, 0);
-
-	if (imx585->has_ircut) {
-		imx585->ircut_ctrl =
-			v4l2_ctrl_new_std(&imx585->ctrl_handler, &imx585_ctrl_ops,
-					  V4L2_CID_BAND_STOP_FILTER,
-					  0, 1, 1, 1);
-	}
-
-	imx585->hdr_mode = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops,
-					     V4L2_CID_WIDE_DYNAMIC_RANGE,
-					     0, 1, 1, 0);
-	imx585->datasel_th_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr,
-						       &imx585_cfg_datasel_th, NULL);
-	imx585->datasel_bk_ctrl = v4l2_ctrl_new_custom(ctrl_hdlr,
-						       &imx585_cfg_datasel_bk, NULL);
-	imx585->gdc_th_ctrl     = v4l2_ctrl_new_custom(ctrl_hdlr,
-						       &imx585_cfg_grad_th, NULL);
-	imx585->gdc_exp_ctrl_l  = v4l2_ctrl_new_custom(ctrl_hdlr,
-						       &imx585_cfg_grad_exp_l, NULL);
-	imx585->gdc_exp_ctrl_h  = v4l2_ctrl_new_custom(ctrl_hdlr,
-						       &imx585_cfg_grad_exp_h, NULL);
-	imx585->hdr_gain_ctrl   = v4l2_ctrl_new_custom(ctrl_hdlr,
-						       &imx585_cfg_hdr_gain, NULL);
-	imx585->hcg_ctrl        = v4l2_ctrl_new_custom(ctrl_hdlr,
-						       &imx585_cfg_hcg, NULL);
-
-	v4l2_ctrl_activate(imx585->datasel_th_ctrl,  imx585->clear_hdr);
-	v4l2_ctrl_activate(imx585->datasel_bk_ctrl,  imx585->clear_hdr);
-	v4l2_ctrl_activate(imx585->gdc_th_ctrl,      imx585->clear_hdr);
-	v4l2_ctrl_activate(imx585->gdc_exp_ctrl_l,   imx585->clear_hdr);
-	v4l2_ctrl_activate(imx585->gdc_exp_ctrl_h,   imx585->clear_hdr);
-	v4l2_ctrl_activate(imx585->hdr_gain_ctrl,    imx585->clear_hdr);
-	v4l2_ctrl_activate(imx585->hcg_ctrl,        !imx585->clear_hdr);
-
-	if (ctrl_hdlr->error) {
-		ret = ctrl_hdlr->error;
-		dev_err(imx585->clientdev, "%s control init failed (%d)\n",
-			__func__, ret);
-		goto error;
-	}
-
-	ret = v4l2_fwnode_device_parse(imx585->clientdev, &props);
-	if (ret)
-		goto error;
-
-	ret = v4l2_ctrl_new_fwnode_properties(ctrl_hdlr, &imx585_ctrl_ops, &props);
-	if (ret)
-		goto error;
-
-	memcpy(imx585->datasel_th_ctrl->p_cur.p, hdr_thresh_def, sizeof(hdr_thresh_def));
-	memcpy(imx585->datasel_th_ctrl->p_new.p, hdr_thresh_def, sizeof(hdr_thresh_def));
-	memcpy(imx585->gdc_th_ctrl->p_cur.p, grad_thresh_def, sizeof(grad_thresh_def));
-	memcpy(imx585->gdc_th_ctrl->p_new.p, grad_thresh_def, sizeof(grad_thresh_def));
-
-	imx585->hdr_mode->flags |= V4L2_CTRL_FLAG_UPDATE;
-	imx585->hdr_mode->flags |= V4L2_CTRL_FLAG_MODIFY_LAYOUT;
-
-	imx585->sd.ctrl_handler = ctrl_hdlr;
-
-	/* Setup exposure and frame/line length limits. */
-	imx585_set_framing_limits(imx585);
-
-	return 0;
-
-error:
-	v4l2_ctrl_handler_free(ctrl_hdlr);
-	mutex_destroy(&imx585->mutex);
-
-	return ret;
-}
-
-static void imx585_free_controls(struct imx585 *imx585)
-{
-	v4l2_ctrl_handler_free(imx585->sd.ctrl_handler);
-	mutex_destroy(&imx585->mutex);
-}
-
-static const struct of_device_id imx585_dt_ids[] = {
-	{ .compatible = "sony,imx585"},
-	{ /* sentinel */ }
-};
-
 static int imx585_check_hwcfg(struct device *dev, struct imx585 *imx585)
 {
 	struct fwnode_handle *endpoint;
@@ -2179,12 +2143,42 @@ error_out:
 	return ret;
 }
 
+static int imx585_get_regulators(struct imx585 *imx585)
+{
+	unsigned int i;
+
+	for (i = 0; i < imx585_NUM_SUPPLIES; i++)
+		imx585->supplies[i].supply = imx585_supply_name[i];
+
+	return devm_regulator_bulk_get(imx585->clientdev,
+					   imx585_NUM_SUPPLIES,
+					   imx585->supplies);
+}
+
+/* Verify chip ID */
+static int imx585_check_module_exists(struct imx585 *imx585)
+{
+	int ret;
+	u32 val;
+
+	/* We don't actually have a CHIP ID register so we try to read from BLKLEVEL instead*/
+	ret = imx585_read_reg(imx585, IMX585_REG_BLKLEVEL,
+			      1, &val);
+	if (ret) {
+		dev_err(imx585->clientdev, "failed to read chip reg, with error %d\n", ret);
+		return ret;
+	}
+
+	dev_info(imx585->clientdev, "Reg read success, Device found\n");
+
+	return 0;
+}
+
 static int imx585_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
 	struct device_node  *np;
 	struct imx585 *imx585;
-	const struct of_device_id *match;
 	int ret, i;
 	u32 sync_mode;
 
@@ -2194,10 +2188,6 @@ static int imx585_probe(struct i2c_client *client)
 
 	v4l2_i2c_subdev_init(&imx585->sd, client, &imx585_subdev_ops);
 	imx585->clientdev = &client->dev;
-
-	match = of_match_device(imx585_dt_ids, dev);
-	if (!match)
-		return -ENODEV;
 
 	dev_info(dev, "Reading dtoverlay config:\n");
 	imx585->mono = of_property_read_bool(dev->of_node, "mono-mode");
@@ -2360,6 +2350,11 @@ static void imx585_remove(struct i2c_client *client)
 		imx585_power_off(&client->dev);
 	pm_runtime_set_suspended(&client->dev);
 }
+
+static const struct of_device_id imx585_dt_ids[] = {
+	{ .compatible = "sony,imx585"},
+	{ /* sentinel */ }
+};
 
 MODULE_DEVICE_TABLE(of, imx585_dt_ids);
 
