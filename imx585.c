@@ -54,7 +54,7 @@
 
 /* XVS pulse length, 2^n H with n=0~3 */
 #define IMX585_REG_XVSLNG    0x30cc
-/*XHS pulse length, 16*(2^n) Clock with n=0~3*/
+/* XHS pulse length, 16*(2^n) Clock with n=0~3 */
 #define IMX585_REG_XHSLNG    0x30cd
 
 /* Clk selection */
@@ -127,6 +127,7 @@
 #define IMX585_FLIP_WINMODEH            0x3020
 #define IMX585_FLIP_WINMODEV            0x3021
 
+/* Pixel Rate */
 #define IMX585_PIXEL_RATE               74250000
 
 /* imx585 native and active pixel array size. */
@@ -737,7 +738,7 @@ struct imx585 {
 	bool mono;
 
 	/* Clear HDR mode */
-	bool clear_HDR;
+	bool clear_hdr;
 
 	/* 
 	 * Sync Mode
@@ -784,7 +785,7 @@ static inline void get_mode_table(struct imx585 *imx585, unsigned int code,
 
 	if (imx585->mono) {
 		/* --- Mono paths --- */
-		if (code == MEDIA_BUS_FMT_Y16_1X16 && imx585->clear_HDR) {
+		if (code == MEDIA_BUS_FMT_Y16_1X16 && imx585->clear_hdr) {
 			*mode_list = supported_modes;
 			*num_modes = ARRAY_SIZE(supported_modes);
 		}
@@ -959,7 +960,7 @@ static u32 imx585_get_format_code(struct imx585 *imx585, u32 code)
 		return mono_codes[i];
 	}
 
-	if (imx585->clear_HDR) {
+	if (imx585->clear_hdr) {
 		for (i = 0; i < ARRAY_SIZE(codes_clearhdr); i++)
 			if (codes_clearhdr[i] == code)
 				break;
@@ -1020,7 +1021,7 @@ static int imx585_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 static void imx585_update_gain_limits(struct imx585 *imx585)
 {
 	bool hcg_on = imx585->hcg;
-	bool clear_hdr = imx585->clear_HDR;
+	bool clear_hdr = imx585->clear_hdr;
 	u32 min = hcg_on ? IMX585_ANA_GAIN_MIN_HCG : IMX585_ANA_GAIN_MIN_NORMAL;
 	u32 max = clear_hdr ? IMX585_ANA_GAIN_MAX_HDR : IMX585_ANA_GAIN_MAX_NORMAL;
 	u32 cur = imx585->gain->val;
@@ -1042,7 +1043,7 @@ static void imx585_update_hmax(struct imx585 *imx585)
 	const u32 base_4lane = HMAX_table_4lane_4K[imx585->link_freq_idx];
 	const u32 lane_scale = (imx585->lane_count == 2) ? 2 : 1;
 	const u32 factor     = base_4lane * lane_scale;
-	const u32 hdr_factor = (imx585->clear_HDR) ? 2 : 1;
+	const u32 hdr_factor = (imx585->clear_hdr) ? 2 : 1;
 
 	dev_info(&client->dev, "Upadte minimum HMAX\n");
 	dev_info(&client->dev, "\tbase_4lane: %d\n", base_4lane);
@@ -1121,15 +1122,15 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 	 */
 	switch (ctrl->id) {
 	case V4L2_CID_WIDE_DYNAMIC_RANGE:
-		if (imx585->clear_HDR != ctrl->val) {
-			imx585->clear_HDR = ctrl->val;
-			v4l2_ctrl_activate(imx585->datasel_th_ctrl,  imx585->clear_HDR);
-			v4l2_ctrl_activate(imx585->datasel_bk_ctrl,  imx585->clear_HDR);
-			v4l2_ctrl_activate(imx585->gdc_th_ctrl,      imx585->clear_HDR);
-			v4l2_ctrl_activate(imx585->gdc_exp_ctrl_h,   imx585->clear_HDR);
-			v4l2_ctrl_activate(imx585->gdc_exp_ctrl_l,   imx585->clear_HDR);
-			v4l2_ctrl_activate(imx585->hdr_gain_ctrl,    imx585->clear_HDR);
-			v4l2_ctrl_activate(imx585->hcg_ctrl,        !imx585->clear_HDR);
+		if (imx585->clear_hdr != ctrl->val) {
+			imx585->clear_hdr = ctrl->val;
+			v4l2_ctrl_activate(imx585->datasel_th_ctrl,  imx585->clear_hdr);
+			v4l2_ctrl_activate(imx585->datasel_bk_ctrl,  imx585->clear_hdr);
+			v4l2_ctrl_activate(imx585->gdc_th_ctrl,      imx585->clear_hdr);
+			v4l2_ctrl_activate(imx585->gdc_exp_ctrl_h,   imx585->clear_hdr);
+			v4l2_ctrl_activate(imx585->gdc_exp_ctrl_l,   imx585->clear_hdr);
+			v4l2_ctrl_activate(imx585->hdr_gain_ctrl,    imx585->clear_hdr);
+			v4l2_ctrl_activate(imx585->hcg_ctrl,        !imx585->clear_hdr);
 			imx585_update_gain_limits(imx585);
 			if (imx585->mono)
 				code = imx585_get_format_code(imx585, MEDIA_BUS_FMT_Y12_1X12);
@@ -1202,7 +1203,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_VBLANK:
 		{
 			u32 current_exposure = imx585->exposure->cur.val;
-			u32 min_SHR = (imx585->clear_HDR) ? IMX585_SHR_MIN_HDR : IMX585_SHR_MIN;
+			u32 min_SHR = (imx585->clear_hdr) ? IMX585_SHR_MIN_HDR : IMX585_SHR_MIN;
 			/*
 			 * The VBLANK control may change the limits of usable exposure, so check
 			 * and adjust if necessary.
@@ -1470,7 +1471,7 @@ static int imx585_enum_mbus_code(struct v4l2_subdev *sd,
 	const u32 *tbl;
 
 	if (imx585->mono) {
-		if (imx585->clear_HDR) {
+		if (imx585->clear_hdr) {
 			if (code->index > 1)
 				return -EINVAL;
 			code->code = mono_codes[code->index];
@@ -1484,7 +1485,7 @@ static int imx585_enum_mbus_code(struct v4l2_subdev *sd,
 		return 0;
 	}
 
-	if (imx585->clear_HDR) {
+	if (imx585->clear_hdr) {
 		tbl     = codes_clearhdr;  /* << 16bit + 12bit */
 		entries = ARRAY_SIZE(codes_clearhdr) / 4;
 	} else {
@@ -1684,7 +1685,7 @@ static int imx585_start_streaming(struct imx585 *imx585)
 		return ret;
 	}
 
-	if (imx585->clear_HDR) {
+	if (imx585->clear_hdr) {
 		ret = imx585_write_regs(imx585, common_clearHDR_mode,
 					ARRAY_SIZE(common_clearHDR_mode));
 		if (ret) {
@@ -2072,13 +2073,13 @@ static int imx585_init_controls(struct imx585 *imx585)
 	imx585->hcg_ctrl        = v4l2_ctrl_new_custom(ctrl_hdlr,
 						       &imx585_cfg_hcg, NULL);
 
-	v4l2_ctrl_activate(imx585->datasel_th_ctrl,  imx585->clear_HDR);
-	v4l2_ctrl_activate(imx585->datasel_bk_ctrl,  imx585->clear_HDR);
-	v4l2_ctrl_activate(imx585->gdc_th_ctrl,      imx585->clear_HDR);
-	v4l2_ctrl_activate(imx585->gdc_exp_ctrl_l,   imx585->clear_HDR);
-	v4l2_ctrl_activate(imx585->gdc_exp_ctrl_h,   imx585->clear_HDR);
-	v4l2_ctrl_activate(imx585->hdr_gain_ctrl,    imx585->clear_HDR);
-	v4l2_ctrl_activate(imx585->hcg_ctrl,        !imx585->clear_HDR);
+	v4l2_ctrl_activate(imx585->datasel_th_ctrl,  imx585->clear_hdr);
+	v4l2_ctrl_activate(imx585->datasel_bk_ctrl,  imx585->clear_hdr);
+	v4l2_ctrl_activate(imx585->gdc_th_ctrl,      imx585->clear_hdr);
+	v4l2_ctrl_activate(imx585->gdc_exp_ctrl_l,   imx585->clear_hdr);
+	v4l2_ctrl_activate(imx585->gdc_exp_ctrl_h,   imx585->clear_hdr);
+	v4l2_ctrl_activate(imx585->hdr_gain_ctrl,    imx585->clear_hdr);
+	v4l2_ctrl_activate(imx585->hcg_ctrl,        !imx585->clear_hdr);
 
 	if (ctrl_hdlr->error) {
 		ret = ctrl_hdlr->error;
@@ -2211,8 +2212,8 @@ static int imx585_probe(struct i2c_client *client)
 	if (imx585->mono)
 		dev_info(dev, "Mono Mode Selected, make sure you have the correct sensor variant\n");
 
-	imx585->clear_HDR = of_property_read_bool(dev->of_node, "clearHDR-mode");
-	dev_info(dev, "ClearHDR: %d\n", imx585->clear_HDR);
+	imx585->clear_hdr = of_property_read_bool(dev->of_node, "clearHDR-mode");
+	dev_info(dev, "ClearHDR: %d\n", imx585->clear_hdr);
 
 	imx585->sync_mode = 0;
 	ret = of_property_read_u32(dev->of_node, "sync-mode", &sync_mode);
