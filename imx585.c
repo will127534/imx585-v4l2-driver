@@ -305,6 +305,7 @@ static struct imx585_reg common_regs[] = {
 	{0x3030, 0x00},// FDG_SEL0 LCG, HCG:0x01
 	{0x30A6, 0x00},// XVS_DRV [1:0] Hi-Z
 	{0x3081, 0x00},// EXP_GAIN, Reset to 0
+        {0x303A, 0x03},// Disable Embeeded Data
 	{0x3460, 0x21},// -
 	{0x3478, 0xA1},// -
 	{0x347C, 0x01},// -
