@@ -239,6 +239,12 @@ static const char * const grad_compression_slope_menu[] = {
 	"1/2048",
 };
 
+enum {
+	SYNC_INT_LEADER,
+	SYNC_INT_FOLLOWER,
+	SYNC_EXTERNAL,
+};
+
 static const char * const sync_mode_menu[] = {
 	"Internal Sync Leader Mode",
 	"External Sync Leader Mode",
@@ -676,9 +682,9 @@ static const u32 mono_codes[] = {
 /* regulator supplies */
 static const char * const imx585_supply_name[] = {
 	/* Supplies can be enabled in any order */
-	"VANA",  /* Analog (3.3V) supply */
-	"VDIG",  /* Digital Core (1.1V) supply */
-	"VDDL",  /* IF (1.8V) supply */
+	"vana",  /* Analog (3.3V) supply */
+	"vdig",  /* Digital Core (1.1V) supply */
+	"vddl",  /* IF (1.8V) supply */
 };
 
 #define imx585_NUM_SUPPLIES ARRAY_SIZE(imx585_supply_name)
@@ -756,7 +762,7 @@ struct imx585 {
 	 * For Follower mode it is purely driven by external clock.
 	 * In this case you need to drive both XVS and XHS.
 	 */
-	u32 sync_mode;
+	u8 sync_mode;
 
 	/* Tracking sensor VMAX/HMAX value */
 	u16 hmax;
@@ -1675,15 +1681,15 @@ static int imx585_start_streaming(struct imx585 *imx585)
 		else
 			cci_write(imx585->regmap, IMX585_BIN_MODE, 0x00, NULL);
 
-		if (imx585->sync_mode == 1) { //External Sync Leader Mode
-			dev_info(imx585->clientdev, "External Sync Leader Mode, enable XVS input\n");
+		if (imx585->sync_mode == SYNC_INT_FOLLOWER) { //External Sync Leader Mode
+			dev_info(imx585->clientdev, "Int Sync Follower Mode, enable XVS input\n");
 			cci_write(imx585->regmap, IMX585_REG_EXTMODE, 0x01, NULL);
 			// Enable XHS output, but XVS is input
 			cci_write(imx585->regmap, IMX585_REG_XXS_DRV, 0x03, NULL);
 			// Disable XVS OUT
 			cci_write(imx585->regmap, IMX585_REG_XXS_OUTSEL, 0x08, NULL);
-		} else if (imx585->sync_mode == 0) { //Internal Sync Leader Mode
-			dev_info(imx585->clientdev, "Internal Sync Leader Mode, enable output\n");
+		} else if (imx585->sync_mode == SYNC_INT_LEADER) {
+			dev_info(imx585->clientdev, "Int Sync Leader Mode, enable output\n");
 			cci_write(imx585->regmap, IMX585_REG_EXTMODE, 0x00, NULL);
 			// Enable XHS and XVS output
 			cci_write(imx585->regmap, IMX585_REG_XXS_DRV, 0x00, NULL);
@@ -1759,7 +1765,7 @@ static int imx585_start_streaming(struct imx585 *imx585)
 		return ret;
 	}
 
-	if (imx585->sync_mode <= 1) {
+	if (imx585->sync_mode == SYNC_INT_FOLLOWER || imx585->sync_mode == SYNC_INT_LEADER) {
 		dev_info(imx585->clientdev, "imx585 Leader mode enabled\n");
 		cci_write(imx585->regmap, IMX585_REG_XMSTA, 0x00, NULL);
 	}
@@ -2075,7 +2081,7 @@ static int imx585_probe(struct i2c_client *client)
 	struct device_node  *np;
 	struct imx585 *imx585;
 	int ret, i;
-	u32 sync_mode;
+	const char *sync_mode;
 
 	imx585 = devm_kzalloc(&client->dev, sizeof(*imx585), GFP_KERNEL);
 	if (!imx585)
@@ -2089,22 +2095,14 @@ static int imx585_probe(struct i2c_client *client)
 	if (imx585->mono)
 		dev_info(dev, "Mono Mode Selected, make sure you have the correct sensor variant\n");
 
-	imx585->clear_hdr = of_property_read_bool(dev->of_node, "clearHDR-mode");
-	dev_info(dev, "ClearHDR: %d\n", imx585->clear_hdr);
-
-	imx585->sync_mode = 0;
-	ret = of_property_read_u32(dev->of_node, "sync-mode", &sync_mode);
-	if (!ret) {
-		if (sync_mode > 2) {
-			dev_warn(dev, "sync-mode out of range, using 0\n");
-			sync_mode = 0;
-		}
-		imx585->sync_mode = sync_mode;
-	} else if (ret != -EINVAL) {          /* property present but bad */
-		dev_err(dev, "sync-mode malformed (%pe)\n", ERR_PTR(ret));
-		return ret;
+	imx585->sync_mode = SYNC_INT_LEADER;
+	if (!device_property_read_string(dev, "sony,sync-mode", &sync_mode)) {
+		if (!strcmp(sync_mode, "internal-follower"))
+			imx585->sync_mode = SYNC_INT_FOLLOWER;
+		else if (!strcmp(sync_mode, "external"))
+			imx585->sync_mode = SYNC_EXTERNAL;
 	}
-	dev_info(dev, "Sync Mode: %s\n", sync_mode_menu[imx585->sync_mode]);
+	dev_info(dev, "sync-mode: %s\n", sync_mode_menu[imx585->sync_mode]);
 
 	/* Check the hardware configuration in device tree */
 	if (imx585_check_hwcfg(dev, imx585))

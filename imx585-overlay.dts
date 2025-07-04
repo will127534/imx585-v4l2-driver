@@ -47,7 +47,6 @@
 		};
 	};
 
-
 	i2c_frag: fragment@100 {
 		target = <&i2c_csi_dsi>;
 		__overlay__ {
@@ -59,16 +58,17 @@
 				compatible = "sony,imx585";
 				reg = <0x1a>;
 				clocks = <&cam1_clk>;
-				clock-names = "xclk";
-				clock-frequency = <24000000>;
+
+				assigned-clocks      = <&cam1_clk>;
+				assigned-clock-rates = <24000000>;    /* Hz*/
 
 				rotation = <0>;
 				orientation = <0>;
-				sync-mode = <0>;
+				sony,sync-mode = "internal-leader";
 
-				VANA-supply = <&cam1_reg>;	/* 3.3v */
-				VDIG-supply = <&cam_dummy_reg>;	/* 1.1v */
-				VDDL-supply = <&cam_dummy_reg>;	/* 1.8v */
+				vana-supply = <&cam1_reg>;	/* 3.3v */
+				vdig-supply = <&cam_dummy_reg>;	/* 1.1v */
+				vddl-supply = <&cam_dummy_reg>;	/* 1.8v */
 
 				ircut-controller = <&ircut_node>;
 
@@ -131,18 +131,17 @@
 	__overrides__ {
 		2lane = <0>, "-0+1-2+3";
 		always-on = <0>, "+99";
-		rotation = <&cam_node>,"rotation:0";
+		rotation    = <&cam_node>,"rotation:0";
 		orientation = <&cam_node>,"orientation:0";
-		sync-mode = <&cam_node>,"sync-mode:0";
+		sync-mode   = <&cam_node>, "sony,sync-mode=%s";
 		media-controller = <&csi>,"brcm,media-controller?";
 		cam0 = <&i2c_frag>, "target:0=",<&i2c_csi_dsi0>,
 		       <&csi_frag>, "target:0=",<&csi0>,
 		       <&clk_frag>, "target:0=",<&cam0_clk>,
 		       <&cam_node>, "clocks:0=",<&cam0_clk>,
 		       <&reg_alwayson_frag>, "target:0=",<&cam0_reg>,
-		       <&cam_node>, "VANA-supply:0=",<&cam0_reg>;
+		       <&cam_node>, "vana-supply:0=",<&cam0_reg>;
 		mono = <&cam_node>,"mono-mode:0=1";
-		hdr = <&cam_node>,"clearHDR-mode:0=1";
 		link-frequency = <&cam_endpoint>,"link-frequencies#0";
         ircut        = <&ircut_node>,"status=okay",
                        <&cam_node>,"ircut-mode:0=1";
