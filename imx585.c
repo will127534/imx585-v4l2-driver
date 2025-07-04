@@ -7,6 +7,7 @@
  * Modified by Will WHANG
  * Modified by sohonomura2020 in Soho Enterprise Ltd.
  */
+
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
@@ -18,6 +19,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/unaligned.h>
 
+#include <media/v4l2-cci.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-event.h>
@@ -33,7 +35,7 @@
 #define V4L2_CID_IMX585_HCG_GAIN         (V4L2_CID_USER_ASPEED_BASE + 6)
 
 /* Standby or streaming mode */
-#define IMX585_REG_MODE_SELECT          0x3000
+#define IMX585_REG_MODE_SELECT          CCI_REG8(0x3000)
 #define IMX585_MODE_STANDBY             0x01
 #define IMX585_MODE_STREAMING           0x00
 #define IMX585_STREAM_DELAY_US          25000
@@ -47,40 +49,40 @@
 #define IMX585_XCLR_DELAY_RANGE_US  1000
 
 /* Leader mode and XVS/XHS direction */
-#define IMX585_REG_XMSTA      0x3002
-#define IMX585_REG_XXS_DRV    0x30a6
-#define IMX585_REG_EXTMODE    0x30ce
-#define IMX585_REG_XXS_OUTSEL 0x30a4
+#define IMX585_REG_XMSTA      CCI_REG8(0x3002)
+#define IMX585_REG_XXS_DRV    CCI_REG8(0x30a6)
+#define IMX585_REG_EXTMODE    CCI_REG8(0x30ce)
+#define IMX585_REG_XXS_OUTSEL CCI_REG8(0x30a4)
 
 /* XVS pulse length, 2^n H with n=0~3 */
-#define IMX585_REG_XVSLNG    0x30cc
+#define IMX585_REG_XVSLNG    CCI_REG8(0x30cc)
 /* XHS pulse length, 16*(2^n) Clock with n=0~3 */
-#define IMX585_REG_XHSLNG    0x30cd
+#define IMX585_REG_XHSLNG    CCI_REG8(0x30cd)
 
 /* Clk selection */
-#define IMX585_INCK_SEL                 0x3014
+#define IMX585_INCK_SEL                 CCI_REG8(0x3014)
 
 /* Link Speed */
-#define IMX585_DATARATE_SEL             0x3015
+#define IMX585_DATARATE_SEL             CCI_REG8(0x3015)
 
 /* BIN mode */
 /* 2x2 Bin mode selection, 0x01 => Mono, 0x00 => Color */
-#define IMX585_BIN_MODE                 0x3019
+#define IMX585_BIN_MODE                 CCI_REG8(0x3019)
 
 /* Lane Count */
-#define IMX585_LANEMODE                 0x3040
+#define IMX585_LANEMODE                 CCI_REG8(0x3040)
 
 /* VMAX internal VBLANK*/
-#define IMX585_REG_VMAX                 0x3028
+#define IMX585_REG_VMAX                 CCI_REG24_LE(0x3028)
 #define IMX585_VMAX_MAX                 0xfffff
 #define IMX585_VMAX_DEFAULT             2250
 
 /* HMAX internal HBLANK*/
-#define IMX585_REG_HMAX                 0x302c
+#define IMX585_REG_HMAX                 CCI_REG16_LE(0x302c)
 #define IMX585_HMAX_MAX                 0xffff
 
 /* SHR internal */
-#define IMX585_REG_SHR                  0x3050
+#define IMX585_REG_SHR                  CCI_REG24_LE(0x3050)
 #define IMX585_SHR_MIN                  8
 #define IMX585_SHR_MIN_HDR              10
 #define IMX585_SHR_MAX                  0xfffff
@@ -92,30 +94,30 @@
 #define IMX585_EXPOSURE_MAX             49865
 
 /* HDR threshold */
-#define IMX585_REG_EXP_TH_H             0x36d0
-#define IMX585_REG_EXP_TH_L             0x36d4
-#define IMX585_REG_EXP_BK               0x36e2
+#define IMX585_REG_EXP_TH_H             CCI_REG16_LE(0x36d0)
+#define IMX585_REG_EXP_TH_L             CCI_REG16_LE(0x36d4)
+#define IMX585_REG_EXP_BK               CCI_REG8(0x36e2)
 
 /* Gradation compression control */
-#define IMX595_REG_CCMP_EN              0x36ef
-#define IMX585_REG_CCMP1_EXP            0x36e8
-#define IMX585_REG_CCMP2_EXP            0x36e4
-#define IMX585_REG_ACMP1_EXP            0x36ee
-#define IMX585_REG_ACMP2_EXP            0x36ec
+#define IMX595_REG_CCMP_EN              CCI_REG8(0x36ef)
+#define IMX585_REG_CCMP1_EXP            CCI_REG24_LE(0x36e8)
+#define IMX585_REG_CCMP2_EXP            CCI_REG24_LE(0x36e4)
+#define IMX585_REG_ACMP1_EXP            CCI_REG8(0x36ee)
+#define IMX585_REG_ACMP2_EXP            CCI_REG8(0x36ec)
 
 /* HDR Gain Adder */
-#define IMX585_REG_EXP_GAIN             0x3081
+#define IMX585_REG_EXP_GAIN             CCI_REG8(0x3081)
 
 /* Black level control */
-#define IMX585_REG_BLKLEVEL             0x30dc
+#define IMX585_REG_BLKLEVEL             CCI_REG16_LE(0x30dc)
 #define IMX585_BLKLEVEL_DEFAULT         50
 
 /* Digital Clamp */
-#define IMX585_REG_DIGITAL_CLAMP        0x3458
+#define IMX585_REG_DIGITAL_CLAMP        CCI_REG8(0x3458)
 
 /* Analog gain control */
-#define IMX585_REG_ANALOG_GAIN          0x306c
-#define IMX585_REG_FDG_SEL0             0x3030
+#define IMX585_REG_ANALOG_GAIN          CCI_REG16_LE(0x306c)
+#define IMX585_REG_FDG_SEL0             CCI_REG8(0x3030)
 #define IMX585_ANA_GAIN_MIN_NORMAL      0
 #define IMX585_ANA_GAIN_MIN_HCG         34
 #define IMX585_ANA_GAIN_MAX_HDR         80
@@ -124,8 +126,8 @@
 #define IMX585_ANA_GAIN_DEFAULT         0
 
 /* Flip */
-#define IMX585_FLIP_WINMODEH            0x3020
-#define IMX585_FLIP_WINMODEV            0x3021
+#define IMX585_FLIP_WINMODEH            CCI_REG8(0x3020)
+#define IMX585_FLIP_WINMODEV            CCI_REG8(0x3021)
 
 /* Pixel Rate */
 #define IMX585_PIXEL_RATE               74250000
@@ -248,9 +250,9 @@ struct imx585_reg {
 	u8 val;
 };
 
-struct IMX585_reg_list {
+struct imx585_reg_list {
 	unsigned int num_of_regs;
-	const struct imx585_reg *regs;
+	const struct cci_reg_sequence *regs;
 };
 
 /* Mode : resolution and related config&values */
@@ -280,289 +282,289 @@ struct imx585_mode {
 	struct v4l2_rect crop;
 
 	/* Default register values */
-	struct IMX585_reg_list reg_list;
+	struct imx585_reg_list reg_list;
 };
 
 /* IMX585 Register List */
 /* Common Modes */
-static struct imx585_reg common_regs[] = {
-	{0x3002, 0x01},
-	{0x3069, 0x00},
-	{0x3074, 0x64},
-	{0x30D5, 0x04},// DIG_CLP_VSTART
-	{0x3030, 0x00},// FDG_SEL0 LCG, HCG:0x01
-	{0x30A6, 0x00},// XVS_DRV [1:0] Hi-Z
-	{0x3081, 0x00},// EXP_GAIN, Reset to 0
-        {0x303A, 0x03},// Disable Embeeded Data
-	{0x3460, 0x21},// -
-	{0x3478, 0xA1},// -
-	{0x347C, 0x01},// -
-	{0x3480, 0x01},// -
-	{0x3A4E, 0x14},// -
-	{0x3A52, 0x14},// -
-	{0x3A56, 0x00},// -
-	{0x3A5A, 0x00},// -
-	{0x3A5E, 0x00},// -
-	{0x3A62, 0x00},// -
-	{0x3A6A, 0x20},// -
-	{0x3A6C, 0x42},// -
-	{0x3A6E, 0xA0},// -
-	{0x3B2C, 0x0C},// -
-	{0x3B30, 0x1C},// -
-	{0x3B34, 0x0C},// -
-	{0x3B38, 0x1C},// -
-	{0x3BA0, 0x0C},// -
-	{0x3BA4, 0x1C},// -
-	{0x3BA8, 0x0C},// -
-	{0x3BAC, 0x1C},// -
-	{0x3D3C, 0x11},// -
-	{0x3D46, 0x0B},// -
-	{0x3DE0, 0x3F},// -
-	{0x3DE1, 0x08},// -
-	{0x3E14, 0x87},// -
-	{0x3E16, 0x91},// -
-	{0x3E18, 0x91},// -
-	{0x3E1A, 0x87},// -
-	{0x3E1C, 0x78},// -
-	{0x3E1E, 0x50},// -
-	{0x3E20, 0x50},// -
-	{0x3E22, 0x50},// -
-	{0x3E24, 0x87},// -
-	{0x3E26, 0x91},// -
-	{0x3E28, 0x91},// -
-	{0x3E2A, 0x87},// -
-	{0x3E2C, 0x78},// -
-	{0x3E2E, 0x50},// -
-	{0x3E30, 0x50},// -
-	{0x3E32, 0x50},// -
-	{0x3E34, 0x87},// -
-	{0x3E36, 0x91},// -
-	{0x3E38, 0x91},// -
-	{0x3E3A, 0x87},// -
-	{0x3E3C, 0x78},// -
-	{0x3E3E, 0x50},// -
-	{0x3E40, 0x50},// -
-	{0x3E42, 0x50},// -
-	{0x4054, 0x64},// -
-	{0x4148, 0xFE},// -
-	{0x4149, 0x05},// -
-	{0x414A, 0xFF},// -
-	{0x414B, 0x05},// -
-	{0x420A, 0x03},// -
-	{0x4231, 0x08},// -
-	{0x423D, 0x9C},// -
-	{0x4242, 0xB4},// -
-	{0x4246, 0xB4},// -
-	{0x424E, 0xB4},// -
-	{0x425C, 0xB4},// -
-	{0x425E, 0xB6},// -
-	{0x426C, 0xB4},// -
-	{0x426E, 0xB6},// -
-	{0x428C, 0xB4},// -
-	{0x428E, 0xB6},// -
-	{0x4708, 0x00},// -
-	{0x4709, 0x00},// -
-	{0x470A, 0xFF},// -
-	{0x470B, 0x03},// -
-	{0x470C, 0x00},// -
-	{0x470D, 0x00},// -
-	{0x470E, 0xFF},// -
-	{0x470F, 0x03},// -
-	{0x47EB, 0x1C},// -
-	{0x47F0, 0xA6},// -
-	{0x47F2, 0xA6},// -
-	{0x47F4, 0xA0},// -
-	{0x47F6, 0x96},// -
-	{0x4808, 0xA6},// -
-	{0x480A, 0xA6},// -
-	{0x480C, 0xA0},// -
-	{0x480E, 0x96},// -
-	{0x492C, 0xB2},// -
-	{0x4930, 0x03},// -
-	{0x4932, 0x03},// -
-	{0x4936, 0x5B},// -
-	{0x4938, 0x82},// -
-	{0x493E, 0x23},// -
-	{0x4BA8, 0x1C},// -
-	{0x4BA9, 0x03},// -
-	{0x4BAC, 0x1C},// -
-	{0x4BAD, 0x1C},// -
-	{0x4BAE, 0x1C},// -
-	{0x4BAF, 0x1C},// -
-	{0x4BB0, 0x1C},// -
-	{0x4BB1, 0x1C},// -
-	{0x4BB2, 0x1C},// -
-	{0x4BB3, 0x1C},// -
-	{0x4BB4, 0x1C},// -
-	{0x4BB8, 0x03},// -
-	{0x4BB9, 0x03},// -
-	{0x4BBA, 0x03},// -
-	{0x4BBB, 0x03},// -
-	{0x4BBC, 0x03},// -
-	{0x4BBD, 0x03},// -
-	{0x4BBE, 0x03},// -
-	{0x4BBF, 0x03},// -
-	{0x4BC0, 0x03},// -
-	{0x4C14, 0x87},// -
-	{0x4C16, 0x91},// -
-	{0x4C18, 0x91},// -
-	{0x4C1A, 0x87},// -
-	{0x4C1C, 0x78},// -
-	{0x4C1E, 0x50},// -
-	{0x4C20, 0x50},// -
-	{0x4C22, 0x50},// -
-	{0x4C24, 0x87},// -
-	{0x4C26, 0x91},// -
-	{0x4C28, 0x91},// -
-	{0x4C2A, 0x87},// -
-	{0x4C2C, 0x78},// -
-	{0x4C2E, 0x50},// -
-	{0x4C30, 0x50},// -
-	{0x4C32, 0x50},// -
-	{0x4C34, 0x87},// -
-	{0x4C36, 0x91},// -
-	{0x4C38, 0x91},// -
-	{0x4C3A, 0x87},// -
-	{0x4C3C, 0x78},// -
-	{0x4C3E, 0x50},// -
-	{0x4C40, 0x50},// -
-	{0x4C42, 0x50},// -
-	{0x4D12, 0x1F},// -
-	{0x4D13, 0x1E},// -
-	{0x4D26, 0x33},// -
-	{0x4E0E, 0x59},// -
-	{0x4E14, 0x55},// -
-	{0x4E16, 0x59},// -
-	{0x4E1E, 0x3B},// -
-	{0x4E20, 0x47},// -
-	{0x4E22, 0x54},// -
-	{0x4E26, 0x81},// -
-	{0x4E2C, 0x7D},// -
-	{0x4E2E, 0x81},// -
-	{0x4E36, 0x63},// -
-	{0x4E38, 0x6F},// -
-	{0x4E3A, 0x7C},// -
-	{0x4F3A, 0x3C},// -
-	{0x4F3C, 0x46},// -
-	{0x4F3E, 0x59},// -
-	{0x4F42, 0x64},// -
-	{0x4F44, 0x6E},// -
-	{0x4F46, 0x81},// -
-	{0x4F4A, 0x82},// -
-	{0x4F5A, 0x81},// -
-	{0x4F62, 0xAA},// -
-	{0x4F72, 0xA9},// -
-	{0x4F78, 0x36},// -
-	{0x4F7A, 0x41},// -
-	{0x4F7C, 0x61},// -
-	{0x4F7D, 0x01},// -
-	{0x4F7E, 0x7C},// -
-	{0x4F7F, 0x01},// -
-	{0x4F80, 0x77},// -
-	{0x4F82, 0x7B},// -
-	{0x4F88, 0x37},// -
-	{0x4F8A, 0x40},// -
-	{0x4F8C, 0x62},// -
-	{0x4F8D, 0x01},// -
-	{0x4F8E, 0x76},// -
-	{0x4F8F, 0x01},// -
-	{0x4F90, 0x5E},// -
-	{0x4F91, 0x02},// -
-	{0x4F92, 0x69},// -
-	{0x4F93, 0x02},// -
-	{0x4F94, 0x89},// -
-	{0x4F95, 0x02},// -
-	{0x4F96, 0xA4},// -
-	{0x4F97, 0x02},// -
-	{0x4F98, 0x9F},// -
-	{0x4F99, 0x02},// -
-	{0x4F9A, 0xA3},// -
-	{0x4F9B, 0x02},// -
-	{0x4FA0, 0x5F},// -
-	{0x4FA1, 0x02},// -
-	{0x4FA2, 0x68},// -
-	{0x4FA3, 0x02},// -
-	{0x4FA4, 0x8A},// -
-	{0x4FA5, 0x02},// -
-	{0x4FA6, 0x9E},// -
-	{0x4FA7, 0x02},// -
-	{0x519E, 0x79},// -
-	{0x51A6, 0xA1},// -
-	{0x51F0, 0xAC},// -
-	{0x51F2, 0xAA},// -
-	{0x51F4, 0xA5},// -
-	{0x51F6, 0xA0},// -
-	{0x5200, 0x9B},// -
-	{0x5202, 0x91},// -
-	{0x5204, 0x87},// -
-	{0x5206, 0x82},// -
-	{0x5208, 0xAC},// -
-	{0x520A, 0xAA},// -
-	{0x520C, 0xA5},// -
-	{0x520E, 0xA0},// -
-	{0x5210, 0x9B},// -
-	{0x5212, 0x91},// -
-	{0x5214, 0x87},// -
-	{0x5216, 0x82},// -
-	{0x5218, 0xAC},// -
-	{0x521A, 0xAA},// -
-	{0x521C, 0xA5},// -
-	{0x521E, 0xA0},// -
-	{0x5220, 0x9B},// -
-	{0x5222, 0x91},// -
-	{0x5224, 0x87},// -
-	{0x5226, 0x82},// -
+static struct cci_reg_sequence common_regs[] = {
+	{ CCI_REG8(0x3002), 0x01 },
+	{ CCI_REG8(0x3069), 0x00 },
+	{ CCI_REG8(0x3074), 0x64 },
+	{ CCI_REG8(0x30D5), 0x04 },// DIG_CLP_VSTART
+	{ CCI_REG8(0x3030), 0x00 },// FDG_SEL0 LCG, HCG:0x01
+	{ CCI_REG8(0x30A6), 0x00 },// XVS_DRV [1:0] Hi-Z
+	{ CCI_REG8(0x3081), 0x00 },// EXP_GAIN, Reset to 0
+	{ CCI_REG8(0x303A), 0x03 },// Disable Embeeded Data
+	{ CCI_REG8(0x3460), 0x21 },// -
+	{ CCI_REG8(0x3478), 0xA1 },// -
+	{ CCI_REG8(0x347C), 0x01 },// -
+	{ CCI_REG8(0x3480), 0x01 },// -
+	{ CCI_REG8(0x3A4E), 0x14 },// -
+	{ CCI_REG8(0x3A52), 0x14 },// -
+	{ CCI_REG8(0x3A56), 0x00 },// -
+	{ CCI_REG8(0x3A5A), 0x00 },// -
+	{ CCI_REG8(0x3A5E), 0x00 },// -
+	{ CCI_REG8(0x3A62), 0x00 },// -
+	{ CCI_REG8(0x3A6A), 0x20 },// -
+	{ CCI_REG8(0x3A6C), 0x42 },// -
+	{ CCI_REG8(0x3A6E), 0xA0 },// -
+	{ CCI_REG8(0x3B2C), 0x0C },// -
+	{ CCI_REG8(0x3B30), 0x1C },// -
+	{ CCI_REG8(0x3B34), 0x0C },// -
+	{ CCI_REG8(0x3B38), 0x1C },// -
+	{ CCI_REG8(0x3BA0), 0x0C },// -
+	{ CCI_REG8(0x3BA4), 0x1C },// -
+	{ CCI_REG8(0x3BA8), 0x0C },// -
+	{ CCI_REG8(0x3BAC), 0x1C },// -
+	{ CCI_REG8(0x3D3C), 0x11 },// -
+	{ CCI_REG8(0x3D46), 0x0B },// -
+	{ CCI_REG8(0x3DE0), 0x3F },// -
+	{ CCI_REG8(0x3DE1), 0x08 },// -
+	{ CCI_REG8(0x3E14), 0x87 },// -
+	{ CCI_REG8(0x3E16), 0x91 },// -
+	{ CCI_REG8(0x3E18), 0x91 },// -
+	{ CCI_REG8(0x3E1A), 0x87 },// -
+	{ CCI_REG8(0x3E1C), 0x78 },// -
+	{ CCI_REG8(0x3E1E), 0x50 },// -
+	{ CCI_REG8(0x3E20), 0x50 },// -
+	{ CCI_REG8(0x3E22), 0x50 },// -
+	{ CCI_REG8(0x3E24), 0x87 },// -
+	{ CCI_REG8(0x3E26), 0x91 },// -
+	{ CCI_REG8(0x3E28), 0x91 },// -
+	{ CCI_REG8(0x3E2A), 0x87 },// -
+	{ CCI_REG8(0x3E2C), 0x78 },// -
+	{ CCI_REG8(0x3E2E), 0x50 },// -
+	{ CCI_REG8(0x3E30), 0x50 },// -
+	{ CCI_REG8(0x3E32), 0x50 },// -
+	{ CCI_REG8(0x3E34), 0x87 },// -
+	{ CCI_REG8(0x3E36), 0x91 },// -
+	{ CCI_REG8(0x3E38), 0x91 },// -
+	{ CCI_REG8(0x3E3A), 0x87 },// -
+	{ CCI_REG8(0x3E3C), 0x78 },// -
+	{ CCI_REG8(0x3E3E), 0x50 },// -
+	{ CCI_REG8(0x3E40), 0x50 },// -
+	{ CCI_REG8(0x3E42), 0x50 },// -
+	{ CCI_REG8(0x4054), 0x64 },// -
+	{ CCI_REG8(0x4148), 0xFE },// -
+	{ CCI_REG8(0x4149), 0x05 },// -
+	{ CCI_REG8(0x414A), 0xFF },// -
+	{ CCI_REG8(0x414B), 0x05 },// -
+	{ CCI_REG8(0x420A), 0x03 },// -
+	{ CCI_REG8(0x4231), 0x08 },// -
+	{ CCI_REG8(0x423D), 0x9C },// -
+	{ CCI_REG8(0x4242), 0xB4 },// -
+	{ CCI_REG8(0x4246), 0xB4 },// -
+	{ CCI_REG8(0x424E), 0xB4 },// -
+	{ CCI_REG8(0x425C), 0xB4 },// -
+	{ CCI_REG8(0x425E), 0xB6 },// -
+	{ CCI_REG8(0x426C), 0xB4 },// -
+	{ CCI_REG8(0x426E), 0xB6 },// -
+	{ CCI_REG8(0x428C), 0xB4 },// -
+	{ CCI_REG8(0x428E), 0xB6 },// -
+	{ CCI_REG8(0x4708), 0x00 },// -
+	{ CCI_REG8(0x4709), 0x00 },// -
+	{ CCI_REG8(0x470A), 0xFF },// -
+	{ CCI_REG8(0x470B), 0x03 },// -
+	{ CCI_REG8(0x470C), 0x00 },// -
+	{ CCI_REG8(0x470D), 0x00 },// -
+	{ CCI_REG8(0x470E), 0xFF },// -
+	{ CCI_REG8(0x470F), 0x03 },// -
+	{ CCI_REG8(0x47EB), 0x1C },// -
+	{ CCI_REG8(0x47F0), 0xA6 },// -
+	{ CCI_REG8(0x47F2), 0xA6 },// -
+	{ CCI_REG8(0x47F4), 0xA0 },// -
+	{ CCI_REG8(0x47F6), 0x96 },// -
+	{ CCI_REG8(0x4808), 0xA6 },// -
+	{ CCI_REG8(0x480A), 0xA6 },// -
+	{ CCI_REG8(0x480C), 0xA0 },// -
+	{ CCI_REG8(0x480E), 0x96 },// -
+	{ CCI_REG8(0x492C), 0xB2 },// -
+	{ CCI_REG8(0x4930), 0x03 },// -
+	{ CCI_REG8(0x4932), 0x03 },// -
+	{ CCI_REG8(0x4936), 0x5B },// -
+	{ CCI_REG8(0x4938), 0x82 },// -
+	{ CCI_REG8(0x493E), 0x23 },// -
+	{ CCI_REG8(0x4BA8), 0x1C },// -
+	{ CCI_REG8(0x4BA9), 0x03 },// -
+	{ CCI_REG8(0x4BAC), 0x1C },// -
+	{ CCI_REG8(0x4BAD), 0x1C },// -
+	{ CCI_REG8(0x4BAE), 0x1C },// -
+	{ CCI_REG8(0x4BAF), 0x1C },// -
+	{ CCI_REG8(0x4BB0), 0x1C },// -
+	{ CCI_REG8(0x4BB1), 0x1C },// -
+	{ CCI_REG8(0x4BB2), 0x1C },// -
+	{ CCI_REG8(0x4BB3), 0x1C },// -
+	{ CCI_REG8(0x4BB4), 0x1C },// -
+	{ CCI_REG8(0x4BB8), 0x03 },// -
+	{ CCI_REG8(0x4BB9), 0x03 },// -
+	{ CCI_REG8(0x4BBA), 0x03 },// -
+	{ CCI_REG8(0x4BBB), 0x03 },// -
+	{ CCI_REG8(0x4BBC), 0x03 },// -
+	{ CCI_REG8(0x4BBD), 0x03 },// -
+	{ CCI_REG8(0x4BBE), 0x03 },// -
+	{ CCI_REG8(0x4BBF), 0x03 },// -
+	{ CCI_REG8(0x4BC0), 0x03 },// -
+	{ CCI_REG8(0x4C14), 0x87 },// -
+	{ CCI_REG8(0x4C16), 0x91 },// -
+	{ CCI_REG8(0x4C18), 0x91 },// -
+	{ CCI_REG8(0x4C1A), 0x87 },// -
+	{ CCI_REG8(0x4C1C), 0x78 },// -
+	{ CCI_REG8(0x4C1E), 0x50 },// -
+	{ CCI_REG8(0x4C20), 0x50 },// -
+	{ CCI_REG8(0x4C22), 0x50 },// -
+	{ CCI_REG8(0x4C24), 0x87 },// -
+	{ CCI_REG8(0x4C26), 0x91 },// -
+	{ CCI_REG8(0x4C28), 0x91 },// -
+	{ CCI_REG8(0x4C2A), 0x87 },// -
+	{ CCI_REG8(0x4C2C), 0x78 },// -
+	{ CCI_REG8(0x4C2E), 0x50 },// -
+	{ CCI_REG8(0x4C30), 0x50 },// -
+	{ CCI_REG8(0x4C32), 0x50 },// -
+	{ CCI_REG8(0x4C34), 0x87 },// -
+	{ CCI_REG8(0x4C36), 0x91 },// -
+	{ CCI_REG8(0x4C38), 0x91 },// -
+	{ CCI_REG8(0x4C3A), 0x87 },// -
+	{ CCI_REG8(0x4C3C), 0x78 },// -
+	{ CCI_REG8(0x4C3E), 0x50 },// -
+	{ CCI_REG8(0x4C40), 0x50 },// -
+	{ CCI_REG8(0x4C42), 0x50 },// -
+	{ CCI_REG8(0x4D12), 0x1F },// -
+	{ CCI_REG8(0x4D13), 0x1E },// -
+	{ CCI_REG8(0x4D26), 0x33 },// -
+	{ CCI_REG8(0x4E0E), 0x59 },// -
+	{ CCI_REG8(0x4E14), 0x55 },// -
+	{ CCI_REG8(0x4E16), 0x59 },// -
+	{ CCI_REG8(0x4E1E), 0x3B },// -
+	{ CCI_REG8(0x4E20), 0x47 },// -
+	{ CCI_REG8(0x4E22), 0x54 },// -
+	{ CCI_REG8(0x4E26), 0x81 },// -
+	{ CCI_REG8(0x4E2C), 0x7D },// -
+	{ CCI_REG8(0x4E2E), 0x81 },// -
+	{ CCI_REG8(0x4E36), 0x63 },// -
+	{ CCI_REG8(0x4E38), 0x6F },// -
+	{ CCI_REG8(0x4E3A), 0x7C },// -
+	{ CCI_REG8(0x4F3A), 0x3C },// -
+	{ CCI_REG8(0x4F3C), 0x46 },// -
+	{ CCI_REG8(0x4F3E), 0x59 },// -
+	{ CCI_REG8(0x4F42), 0x64 },// -
+	{ CCI_REG8(0x4F44), 0x6E },// -
+	{ CCI_REG8(0x4F46), 0x81 },// -
+	{ CCI_REG8(0x4F4A), 0x82 },// -
+	{ CCI_REG8(0x4F5A), 0x81 },// -
+	{ CCI_REG8(0x4F62), 0xAA },// -
+	{ CCI_REG8(0x4F72), 0xA9 },// -
+	{ CCI_REG8(0x4F78), 0x36 },// -
+	{ CCI_REG8(0x4F7A), 0x41 },// -
+	{ CCI_REG8(0x4F7C), 0x61 },// -
+	{ CCI_REG8(0x4F7D), 0x01 },// -
+	{ CCI_REG8(0x4F7E), 0x7C },// -
+	{ CCI_REG8(0x4F7F), 0x01 },// -
+	{ CCI_REG8(0x4F80), 0x77 },// -
+	{ CCI_REG8(0x4F82), 0x7B },// -
+	{ CCI_REG8(0x4F88), 0x37 },// -
+	{ CCI_REG8(0x4F8A), 0x40 },// -
+	{ CCI_REG8(0x4F8C), 0x62 },// -
+	{ CCI_REG8(0x4F8D), 0x01 },// -
+	{ CCI_REG8(0x4F8E), 0x76 },// -
+	{ CCI_REG8(0x4F8F), 0x01 },// -
+	{ CCI_REG8(0x4F90), 0x5E },// -
+	{ CCI_REG8(0x4F91), 0x02 },// -
+	{ CCI_REG8(0x4F92), 0x69 },// -
+	{ CCI_REG8(0x4F93), 0x02 },// -
+	{ CCI_REG8(0x4F94), 0x89 },// -
+	{ CCI_REG8(0x4F95), 0x02 },// -
+	{ CCI_REG8(0x4F96), 0xA4 },// -
+	{ CCI_REG8(0x4F97), 0x02 },// -
+	{ CCI_REG8(0x4F98), 0x9F },// -
+	{ CCI_REG8(0x4F99), 0x02 },// -
+	{ CCI_REG8(0x4F9A), 0xA3 },// -
+	{ CCI_REG8(0x4F9B), 0x02 },// -
+	{ CCI_REG8(0x4FA0), 0x5F },// -
+	{ CCI_REG8(0x4FA1), 0x02 },// -
+	{ CCI_REG8(0x4FA2), 0x68 },// -
+	{ CCI_REG8(0x4FA3), 0x02 },// -
+	{ CCI_REG8(0x4FA4), 0x8A },// -
+	{ CCI_REG8(0x4FA5), 0x02 },// -
+	{ CCI_REG8(0x4FA6), 0x9E },// -
+	{ CCI_REG8(0x4FA7), 0x02 },// -
+	{ CCI_REG8(0x519E), 0x79 },// -
+	{ CCI_REG8(0x51A6), 0xA1 },// -
+	{ CCI_REG8(0x51F0), 0xAC },// -
+	{ CCI_REG8(0x51F2), 0xAA },// -
+	{ CCI_REG8(0x51F4), 0xA5 },// -
+	{ CCI_REG8(0x51F6), 0xA0 },// -
+	{ CCI_REG8(0x5200), 0x9B },// -
+	{ CCI_REG8(0x5202), 0x91 },// -
+	{ CCI_REG8(0x5204), 0x87 },// -
+	{ CCI_REG8(0x5206), 0x82 },// -
+	{ CCI_REG8(0x5208), 0xAC },// -
+	{ CCI_REG8(0x520A), 0xAA },// -
+	{ CCI_REG8(0x520C), 0xA5 },// -
+	{ CCI_REG8(0x520E), 0xA0 },// -
+	{ CCI_REG8(0x5210), 0x9B },// -
+	{ CCI_REG8(0x5212), 0x91 },// -
+	{ CCI_REG8(0x5214), 0x87 },// -
+	{ CCI_REG8(0x5216), 0x82 },// -
+	{ CCI_REG8(0x5218), 0xAC },// -
+	{ CCI_REG8(0x521A), 0xAA },// -
+	{ CCI_REG8(0x521C), 0xA5 },// -
+	{ CCI_REG8(0x521E), 0xA0 },// -
+	{ CCI_REG8(0x5220), 0x9B },// -
+	{ CCI_REG8(0x5222), 0x91 },// -
+	{ CCI_REG8(0x5224), 0x87 },// -
+	{ CCI_REG8(0x5226), 0x82 },// -
 };
 
 /* Common Registers for ClearHDR. */
-static const struct imx585_reg common_clearHDR_mode[] = {
-	{0x301A, 0x10}, // WDMODE: Clear HDR mode
-	{0x3024, 0x02}, // COMBI_EN: 0x02
-	{0x3069, 0x02}, // Clear HDR mode
-	{0x3074, 0x63}, // Clear HDR mode
-	{0x3930, 0xE6}, // DUR[15:8]: Clear HDR mode (12bit)
-	{0x3931, 0x00}, // DUR[7:0]: Clear HDR mode (12bit)
-	{0x3A4C, 0x61}, // WAIT_ST0[7:0]: Clear HDR mode
-	{0x3A4D, 0x02}, // WAIT_ST0[15:8]: Clear HDR mode
-	{0x3A50, 0x70}, // WAIT_ST1[7:0]: Clear HDR mode
-	{0x3A51, 0x02}, // WAIT_ST1[15:8]: Clear HDR mode
-	{0x3E10, 0x17}, // ADTHEN: Clear HDR mode
-	{0x493C, 0x41}, // WAIT_10_SHF AD 10-bit 0x0C disable
-	{0x4940, 0x41}, // WAIT_12_SHF AD 12-bit 0x41 enable
-	{0x3081, 0x02}, // EXP_GAIN: High gain setting +12dB default
+static const struct cci_reg_sequence common_clearHDR_mode[] = {
+	{ CCI_REG8(0x301A), 0x10 }, // WDMODE: Clear HDR mode
+	{ CCI_REG8(0x3024), 0x02 }, // COMBI_EN: 0x02
+	{ CCI_REG8(0x3069), 0x02 }, // Clear HDR mode
+	{ CCI_REG8(0x3074), 0x63 }, // Clear HDR mode
+	{ CCI_REG8(0x3930), 0xE6 }, // DUR[15:8]: Clear HDR mode (12bit)
+	{ CCI_REG8(0x3931), 0x00 }, // DUR[7:0]: Clear HDR mode (12bit)
+	{ CCI_REG8(0x3A4C), 0x61 }, // WAIT_ST0[7:0]: Clear HDR mode
+	{ CCI_REG8(0x3A4D), 0x02 }, // WAIT_ST0[15:8]: Clear HDR mode
+	{ CCI_REG8(0x3A50), 0x70 }, // WAIT_ST1[7:0]: Clear HDR mode
+	{ CCI_REG8(0x3A51), 0x02 }, // WAIT_ST1[15:8]: Clear HDR mode
+	{ CCI_REG8(0x3E10), 0x17 }, // ADTHEN: Clear HDR mode
+	{ CCI_REG8(0x493C), 0x41 }, // WAIT_10_SHF AD 10-bit 0x0C disable
+	{ CCI_REG8(0x4940), 0x41 }, // WAIT_12_SHF AD 12-bit 0x41 enable
+	{ CCI_REG8(0x3081), 0x02 }, // EXP_GAIN: High gain setting +12dB default
 };
 
 /* Common Registers for non-ClearHDR. */
-static const struct imx585_reg common_normal_mode[] = {
-	{0x301A, 0x00}, // WDMODE: Normal mode
-	{0x3024, 0x00}, // COMBI_EN: 0x00
-	{0x3069, 0x00}, // Normal mode
-	{0x3074, 0x64}, // Normal mode
-	{0x3930, 0x0C}, // DUR[15:8]: Normal mode (12bit)
-	{0x3931, 0x01}, // DUR[7:0]: Normal mode (12bit)
-	{0x3A4C, 0x39}, // WAIT_ST0[7:0]: Normal mode
-	{0x3A4D, 0x01}, // WAIT_ST0[15:8]: Normal mode
-	{0x3A50, 0x48}, // WAIT_ST1[7:0]: Normal mode
-	{0x3A51, 0x01}, // WAIT_ST1[15:8]: Normal mode
-	{0x3E10, 0x10}, // ADTHEN: Normal mode
-	{0x493C, 0x23}, // WAIT_10_SHF AD 10-bit 0x23 Normal mode
-	{0x4940, 0x23}, // WAIT_12_SHF AD 12-bit 0x23 Normal mode
+static const struct cci_reg_sequence common_normal_mode[] = {
+	{ CCI_REG8(0x301A), 0x00 }, // WDMODE: Normal mode
+	{ CCI_REG8(0x3024), 0x00 }, // COMBI_EN: 0x00
+	{ CCI_REG8(0x3069), 0x00 }, // Normal mode
+	{ CCI_REG8(0x3074), 0x64 }, // Normal mode
+	{ CCI_REG8(0x3930), 0x0C }, // DUR[15:8]: Normal mode (12bit)
+	{ CCI_REG8(0x3931), 0x01 }, // DUR[7:0]: Normal mode (12bit)
+	{ CCI_REG8(0x3A4C), 0x39 }, // WAIT_ST0[7:0]: Normal mode
+	{ CCI_REG8(0x3A4D), 0x01 }, // WAIT_ST0[15:8]: Normal mode
+	{ CCI_REG8(0x3A50), 0x48 }, // WAIT_ST1[7:0]: Normal mode
+	{ CCI_REG8(0x3A51), 0x01 }, // WAIT_ST1[15:8]: Normal mode
+	{ CCI_REG8(0x3E10), 0x10 }, // ADTHEN: Normal mode
+	{ CCI_REG8(0x493C), 0x23 }, // WAIT_10_SHF AD 10-bit 0x23 Normal mode
+	{ CCI_REG8(0x4940), 0x23 }, // WAIT_12_SHF AD 12-bit 0x23 Normal mode
 };
 
 /* All pixel 4K60. 12-bit */
-static const struct imx585_reg mode_4k_regs_12bit[] = {
-	{0x301B, 0x00}, // ADDMODE non-binning
-	{0x3022, 0x02}, // ADBIT 12-bit
-	{0x3023, 0x01}, // MDBIT 12-bit
-	{0x30D5, 0x04}, // DIG_CLP_VSTART non-binning
+static const struct cci_reg_sequence mode_4k_regs_12bit[] = {
+	{ CCI_REG8(0x301B), 0x00 }, // ADDMODE non-binning
+	{ CCI_REG8(0x3022), 0x02 }, // ADBIT 12-bit
+	{ CCI_REG8(0x3023), 0x01 }, // MDBIT 12-bit
+	{ CCI_REG8(0x30D5), 0x04 }, // DIG_CLP_VSTART non-binning
 };
 
 /* 2x2 binned 1080p60. 12-bit */
-static const struct imx585_reg mode_1080_regs_12bit[] = {
-	{0x301B, 0x01}, // ADDMODE binning
-	{0x3022, 0x02}, // ADBIT 12-bit
-	{0x3023, 0x01}, // MDBIT 12-bit
-	{0x30D5, 0x02}, // DIG_CLP_VSTART binning
+static const struct cci_reg_sequence mode_1080_regs_12bit[] = {
+	{ CCI_REG8(0x301B), 0x01 }, // ADDMODE binning
+	{ CCI_REG8(0x3022), 0x02 }, // ADBIT 12-bit
+	{ CCI_REG8(0x3023), 0x01 }, // MDBIT 12-bit
+	{ CCI_REG8(0x30D5), 0x02 }, // DIG_CLP_VSTART binning
 };
 
 /* IMX585 Register List - END*/
@@ -685,6 +687,7 @@ struct imx585 {
 	struct v4l2_subdev sd;
 	struct media_pad pad;
 	struct device *clientdev;
+	struct regmap *regmap;
 
 	unsigned int fmt_code;
 
@@ -834,116 +837,6 @@ static int imx585_ircut_write(struct imx585 *imx585, u8 cmd)
 static int imx585_ircut_set(struct imx585 *imx585, int on)
 {
 	return imx585_ircut_write(imx585, on ? 0x01 : 0x00);
-}
-
-/* Read registers up to 2 at a time */
-static int imx585_read_reg(struct imx585 *imx585, u16 reg, u32 len, u32 *val)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
-	struct i2c_msg msgs[2];
-	u8 addr_buf[2] = { reg >> 8, reg & 0xff };
-	u8 data_buf[4] = { 0, };
-	int ret;
-
-	if (len > 4)
-		return -EINVAL;
-
-	/* Write register address */
-	msgs[0].addr = client->addr;
-	msgs[0].flags = 0;
-	msgs[0].len = ARRAY_SIZE(addr_buf);
-	msgs[0].buf = addr_buf;
-
-	/* Read data from register */
-	msgs[1].addr = client->addr;
-	msgs[1].flags = I2C_M_RD;
-	msgs[1].len = len;
-	msgs[1].buf = &data_buf[4 - len];
-
-	ret = i2c_transfer(client->adapter, msgs, ARRAY_SIZE(msgs));
-	if (ret != ARRAY_SIZE(msgs))
-		return -EIO;
-
-	*val = get_unaligned_be32(data_buf);
-
-	return 0;
-}
-
-/* Write registers 1 byte at a time */
-static int imx585_write_reg_1byte(struct imx585 *imx585, u16 reg, u8 val)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
-	u8 buf[3];
-	int ret;
-
-	put_unaligned_be16(reg, buf);
-	buf[2] = val;
-	ret = i2c_master_send(client, buf, 3);
-	if (ret != 3)
-		return ret;
-
-	return 0;
-}
-
-/* Write registers 2 byte at a time */
-static int imx585_write_reg_2byte(struct imx585 *imx585, u16 reg, u16 val)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
-	u8 buf[4];
-	int ret;
-
-	put_unaligned_be16(reg, buf);
-	buf[2] = val;
-	buf[3] = val >> 8;
-	ret = i2c_master_send(client, buf, 4);
-	if (ret != 4)
-		return ret;
-
-	return 0;
-}
-
-/* Write registers 3 byte at a time */
-static int imx585_write_reg_3byte(struct imx585 *imx585, u16 reg, u32 val)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
-	u8 buf[5];
-
-	put_unaligned_be16(reg, buf);
-	buf[2]  = val;
-	buf[3]  = val >> 8;
-	buf[4]  = val >> 16;
-	if (i2c_master_send(client, buf, 5) != 5)
-		return -EIO;
-
-	return 0;
-}
-
-/* Write a list of 1 byte registers */
-static int imx585_write_regs(struct imx585 *imx585,
-			     const struct imx585_reg *regs, u32 len)
-{
-	unsigned int i;
-	int ret;
-
-	for (i = 0; i < len; i++) {
-		ret = imx585_write_reg_1byte(imx585, regs[i].address,
-					     regs[i].val);
-		if (ret) {
-			dev_err_ratelimited(imx585->clientdev,
-					    "Failed to write reg 0x%4.4x. error = %d\n",
-					    regs[i].address, ret);
-
-			return ret;
-		}
-	}
-
-	return 0;
-}
-
-/* Hold register values until hold is disabled */
-static inline void imx585_register_hold(struct imx585 *imx585, bool hold)
-{
-	imx585_write_reg_1byte(imx585, 0x3001, hold ? 1 : 0);
 }
 
 /* Get bayer order based on flip setting. */
@@ -1160,7 +1053,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		dev_info(imx585->clientdev, "\tVMAX:%d, HMAX:%d\n", imx585->vmax, imx585->hmax);
 		dev_info(imx585->clientdev, "\tSHR:%d\n", shr);
 
-		ret = imx585_write_reg_3byte(imx585, IMX585_REG_SHR, shr);
+		ret = cci_write(imx585->regmap, IMX585_REG_SHR, shr, NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
 					    "Failed to write reg 0x%4.4x. error = %d\n",
@@ -1175,7 +1068,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		imx585_update_gain_limits(imx585);
 
 		// Set HCG/LCG channel
-		ret = imx585_write_reg_1byte(imx585, IMX585_REG_FDG_SEL0, ctrl->val);
+		ret = cci_write(imx585->regmap, IMX585_REG_FDG_SEL0, ctrl->val, NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
 					    "Failed to write reg 0x%4.4x. error = %d\n",
@@ -1190,7 +1083,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		dev_info(imx585->clientdev, "analogue gain = %u (%s)\n",
 			 gain, imx585->hcg ? "HCG" : "LCG");
 
-		ret = imx585_write_reg_2byte(imx585, IMX585_REG_ANALOG_GAIN, gain);
+		ret = cci_write(imx585->regmap, IMX585_REG_ANALOG_GAIN, gain, NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
 					    "ANALOG_GAIN write failed (%d)\n", ret);
@@ -1222,7 +1115,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 			 imx585->vmax - min_shr,
 			 IMX585_EXPOSURE_MIN, current_exposure);
 
-		ret = imx585_write_reg_3byte(imx585, IMX585_REG_VMAX, imx585->vmax);
+		ret = cci_write(imx585->regmap, IMX585_REG_VMAX, imx585->vmax, NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
 					    "Failed to write reg 0x%4.4x. error = %d\n",
@@ -1243,7 +1136,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		dev_info(imx585->clientdev, "V4L2_CID_HBLANK : %d\n", ctrl->val);
 		dev_info(imx585->clientdev, "\tHMAX : %d\n", imx585->hmax);
 
-		ret = imx585_write_reg_2byte(imx585, IMX585_REG_HMAX, hmax);
+		ret = cci_write(imx585->regmap, IMX585_REG_HMAX, hmax, NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
 					    "Failed to write reg 0x%4.4x. error = %d\n",
@@ -1252,7 +1145,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		}
 	case V4L2_CID_HFLIP:
 		dev_info(imx585->clientdev, "V4L2_CID_HFLIP : %d\n", ctrl->val);
-		ret = imx585_write_reg_1byte(imx585, IMX585_FLIP_WINMODEH, ctrl->val);
+		ret = cci_write(imx585->regmap, IMX585_FLIP_WINMODEH, ctrl->val, NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
 					    "Failed to write reg 0x%4.4x. error = %d\n",
@@ -1260,7 +1153,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_VFLIP:
 		dev_info(imx585->clientdev, "V4L2_CID_VFLIP : %d\n", ctrl->val);
-		ret = imx585_write_reg_1byte(imx585, IMX585_FLIP_WINMODEV, ctrl->val);
+		ret = cci_write(imx585->regmap, IMX585_FLIP_WINMODEV, ctrl->val, NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
 					    "Failed to write reg 0x%4.4x. error = %d\n",
@@ -1274,7 +1167,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 
 		if (blacklevel > 4095)
 			blacklevel = 4095;
-		ret = imx585_write_reg_1byte(imx585, IMX585_REG_BLKLEVEL, blacklevel);
+		ret = cci_write(imx585->regmap, IMX585_REG_BLKLEVEL, blacklevel, NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
 					    "Failed to write reg 0x%4.4x. error = %d\n",
@@ -1290,12 +1183,12 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_IMX585_HDR_DATASEL_TH:{
 		const u16 *th = (const u16 *)ctrl->p_new.p;
 
-		ret = imx585_write_reg_2byte(imx585, IMX585_REG_EXP_TH_H, th[0]);
+		ret = cci_write(imx585->regmap, IMX585_REG_EXP_TH_H, th[0], NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
 					    "Failed to write reg 0x%4.4x. error = %d\n",
 					    IMX585_REG_EXP_TH_H, ret);
-		ret = imx585_write_reg_2byte(imx585, IMX585_REG_EXP_TH_L, th[1]);
+		ret = cci_write(imx585->regmap, IMX585_REG_EXP_TH_L, th[1], NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
 					    "Failed to write reg 0x%4.4x. error = %d\n",
@@ -1304,7 +1197,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 		}
 	case V4L2_CID_IMX585_HDR_DATASEL_BK:
-		ret = imx585_write_reg_1byte(imx585, IMX585_REG_EXP_BK, ctrl->val);
+		ret = cci_write(imx585->regmap, IMX585_REG_EXP_BK, ctrl->val, NULL);
 		dev_info(imx585->clientdev, "V4L2_CID_IMX585_HDR_DATASEL_BK : %d\n", ctrl->val);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
@@ -1314,12 +1207,12 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_IMX585_HDR_GRAD_TH:{
 		const u32 *thr = (const u32 *)ctrl->p_new.p;
 
-		ret = imx585_write_reg_3byte(imx585, IMX585_REG_CCMP1_EXP, thr[0]);
+		ret = cci_write(imx585->regmap, IMX585_REG_CCMP1_EXP, thr[0], NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
 					    "Failed to write reg 0x%4.4x. error = %d\n",
 					    IMX585_REG_CCMP1_EXP, ret);
-		ret = imx585_write_reg_3byte(imx585, IMX585_REG_CCMP2_EXP, thr[1]);
+		ret = cci_write(imx585->regmap, IMX585_REG_CCMP2_EXP, thr[1], NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
 					    "Failed to write reg 0x%4.4x. error = %d\n",
@@ -1328,7 +1221,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 		}
 	case V4L2_CID_IMX585_HDR_GRAD_COMP_L:{
-		ret = imx585_write_reg_1byte(imx585, IMX585_REG_ACMP1_EXP, ctrl->val);
+		ret = cci_write(imx585->regmap, IMX585_REG_ACMP1_EXP, ctrl->val, NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
 					    "Failed to write reg 0x%4.4x. error = %d\n",
@@ -1337,7 +1230,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 		}
 	case V4L2_CID_IMX585_HDR_GRAD_COMP_H:{
-		ret = imx585_write_reg_1byte(imx585, IMX585_REG_ACMP2_EXP, ctrl->val);
+		ret = cci_write(imx585->regmap, IMX585_REG_ACMP2_EXP, ctrl->val, NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
 					    "Failed to write reg 0x%4.4x. error = %d\n",
@@ -1346,7 +1239,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 		}
 	case V4L2_CID_IMX585_HDR_GAIN:
-		ret = imx585_write_reg_1byte(imx585, IMX585_REG_EXP_GAIN, ctrl->val);
+		ret = cci_write(imx585->regmap, IMX585_REG_EXP_GAIN, ctrl->val, NULL);
 		dev_info(imx585->clientdev, "IMX585_REG_EXP_GAIN : %d\n", ctrl->val);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
@@ -1756,49 +1649,50 @@ __imx585_get_pad_crop(struct imx585 *imx585,
 /* Start streaming */
 static int imx585_start_streaming(struct imx585 *imx585)
 {
-	const struct IMX585_reg_list *reg_list;
+	const struct imx585_reg_list *reg_list;
 	int ret;
 
 	if (!imx585->common_regs_written) {
-		ret = imx585_write_regs(imx585, common_regs, ARRAY_SIZE(common_regs));
+		ret = cci_multi_reg_write(imx585->regmap, common_regs,
+					  ARRAY_SIZE(common_regs), NULL);
 		if (ret) {
 			dev_err(imx585->clientdev, "%s failed to set common settings\n", __func__);
 			return ret;
 		}
 
-		imx585_write_reg_1byte(imx585, IMX585_INCK_SEL, imx585->inck_sel_val);
-		imx585_write_reg_2byte(imx585, IMX585_REG_BLKLEVEL, IMX585_BLKLEVEL_DEFAULT);
-		imx585_write_reg_1byte(imx585, IMX585_DATARATE_SEL,
-				       link_freqs_reg_value[imx585->link_freq_idx]);
+		cci_write(imx585->regmap, IMX585_INCK_SEL, imx585->inck_sel_val, NULL);
+		cci_write(imx585->regmap, IMX585_REG_BLKLEVEL, IMX585_BLKLEVEL_DEFAULT, NULL);
+		cci_write(imx585->regmap, IMX585_DATARATE_SEL,
+				       link_freqs_reg_value[imx585->link_freq_idx], NULL);
 
 		if (imx585->lane_count == 2)
-			imx585_write_reg_1byte(imx585, IMX585_LANEMODE, 0x01);
+			cci_write(imx585->regmap, IMX585_LANEMODE, 0x01, NULL);
 		else
-			imx585_write_reg_1byte(imx585, IMX585_LANEMODE, 0x03);
+			cci_write(imx585->regmap, IMX585_LANEMODE, 0x03, NULL);
 
 		if (imx585->mono)
-			imx585_write_reg_1byte(imx585, IMX585_BIN_MODE, 0x01);
+			cci_write(imx585->regmap, IMX585_BIN_MODE, 0x01, NULL);
 		else
-			imx585_write_reg_1byte(imx585, IMX585_BIN_MODE, 0x00);
+			cci_write(imx585->regmap, IMX585_BIN_MODE, 0x00, NULL);
 
 		if (imx585->sync_mode == 1) { //External Sync Leader Mode
 			dev_info(imx585->clientdev, "External Sync Leader Mode, enable XVS input\n");
-			imx585_write_reg_1byte(imx585, IMX585_REG_EXTMODE, 0x01);
+			cci_write(imx585->regmap, IMX585_REG_EXTMODE, 0x01, NULL);
 			// Enable XHS output, but XVS is input
-			imx585_write_reg_1byte(imx585, IMX585_REG_XXS_DRV, 0x03);
+			cci_write(imx585->regmap, IMX585_REG_XXS_DRV, 0x03, NULL);
 			// Disable XVS OUT
-			imx585_write_reg_1byte(imx585, IMX585_REG_XXS_OUTSEL, 0x08);
+			cci_write(imx585->regmap, IMX585_REG_XXS_OUTSEL, 0x08, NULL);
 		} else if (imx585->sync_mode == 0) { //Internal Sync Leader Mode
 			dev_info(imx585->clientdev, "Internal Sync Leader Mode, enable output\n");
-			imx585_write_reg_1byte(imx585, IMX585_REG_EXTMODE, 0x00);
+			cci_write(imx585->regmap, IMX585_REG_EXTMODE, 0x00, NULL);
 			// Enable XHS and XVS output
-			imx585_write_reg_1byte(imx585, IMX585_REG_XXS_DRV, 0x00);
-			imx585_write_reg_1byte(imx585, IMX585_REG_XXS_OUTSEL, 0x0A);
+			cci_write(imx585->regmap, IMX585_REG_XXS_DRV, 0x00, NULL);
+			cci_write(imx585->regmap, IMX585_REG_XXS_OUTSEL, 0x0A, NULL);
 		} else {
 			dev_info(imx585->clientdev, "Follower Mode, enable XVS/XHS input\n");
 			//For follower mode, switch both of them to input
-			imx585_write_reg_1byte(imx585, IMX585_REG_XXS_DRV, 0x0F);
-			imx585_write_reg_1byte(imx585, IMX585_REG_XXS_OUTSEL, 0x00);
+			cci_write(imx585->regmap, IMX585_REG_XXS_DRV, 0x0F, NULL);
+			cci_write(imx585->regmap, IMX585_REG_XXS_OUTSEL, 0x00, NULL);
 		}
 		imx585->common_regs_written = true;
 		dev_info(imx585->clientdev, "common_regs_written\n");
@@ -1806,15 +1700,15 @@ static int imx585_start_streaming(struct imx585 *imx585)
 
 	/* Apply default values of current mode */
 	reg_list = &imx585->mode->reg_list;
-	ret = imx585_write_regs(imx585, reg_list->regs, reg_list->num_of_regs);
+	ret = cci_multi_reg_write(imx585->regmap, reg_list->regs, reg_list->num_of_regs, NULL);
 	if (ret) {
 		dev_err(imx585->clientdev, "%s failed to set mode\n", __func__);
 		return ret;
 	}
 
 	if (imx585->clear_hdr) {
-		ret = imx585_write_regs(imx585, common_clearHDR_mode,
-					ARRAY_SIZE(common_clearHDR_mode));
+		ret = cci_multi_reg_write(imx585->regmap, common_clearHDR_mode,
+					  ARRAY_SIZE(common_clearHDR_mode), NULL);
 		if (ret) {
 			dev_err(imx585->clientdev, "%s failed to set ClearHDR settings\n", __func__);
 			return ret;
@@ -1827,8 +1721,8 @@ static int imx585_start_streaming(struct imx585 *imx585)
 		case MEDIA_BUS_FMT_SGBRG16_1X16:
 		case MEDIA_BUS_FMT_SBGGR16_1X16:
 		case MEDIA_BUS_FMT_Y16_1X16:
-			imx585_write_reg_1byte(imx585, IMX595_REG_CCMP_EN, 0);
-			imx585_write_reg_1byte(imx585, 0x3023, 0x03); // MDBIT 16-bit
+			cci_write(imx585->regmap, IMX595_REG_CCMP_EN, 0, NULL);
+			cci_write(imx585->regmap, 0x3023, 0x03, NULL); // MDBIT 16-bit
 			dev_info(imx585->clientdev, "16bit HDR written\n");
 			break;
 		/* 12-bit */
@@ -1837,7 +1731,7 @@ static int imx585_start_streaming(struct imx585 *imx585)
 		case MEDIA_BUS_FMT_SGBRG12_1X12:
 		case MEDIA_BUS_FMT_SBGGR12_1X12:
 		case MEDIA_BUS_FMT_Y12_1X12:
-			imx585_write_reg_1byte(imx585, IMX595_REG_CCMP_EN, 1);
+			cci_write(imx585->regmap, IMX595_REG_CCMP_EN, 1, NULL);
 			dev_info(imx585->clientdev, "12bit HDR written\n");
 			break;
 		default:
@@ -1846,7 +1740,8 @@ static int imx585_start_streaming(struct imx585 *imx585)
 		dev_info(imx585->clientdev, "ClearHDR_regs_written\n");
 
 	} else {
-		ret = imx585_write_regs(imx585, common_normal_mode, ARRAY_SIZE(common_normal_mode));
+		ret = cci_multi_reg_write(imx585->regmap, common_normal_mode,
+					  ARRAY_SIZE(common_normal_mode), NULL);
 		if (ret) {
 			dev_err(imx585->clientdev, "%s failed to set Normal settings\n", __func__);
 			return ret;
@@ -1855,7 +1750,7 @@ static int imx585_start_streaming(struct imx585 *imx585)
 	}
 
 	/* Disable digital clamp */
-	imx585_write_reg_1byte(imx585, IMX585_REG_DIGITAL_CLAMP, 0);
+	cci_write(imx585->regmap, IMX585_REG_DIGITAL_CLAMP, 0, NULL);
 
 	/* Apply customized values from user */
 	ret =  __v4l2_ctrl_handler_setup(imx585->sd.ctrl_handler);
@@ -1866,11 +1761,11 @@ static int imx585_start_streaming(struct imx585 *imx585)
 
 	if (imx585->sync_mode <= 1) {
 		dev_info(imx585->clientdev, "imx585 Leader mode enabled\n");
-		imx585_write_reg_1byte(imx585, IMX585_REG_XMSTA, 0x00);
+		cci_write(imx585->regmap, IMX585_REG_XMSTA, 0x00, NULL);
 	}
 
 	/* Set stream on register */
-	ret = imx585_write_reg_1byte(imx585, IMX585_REG_MODE_SELECT, IMX585_MODE_STREAMING);
+	ret = cci_write(imx585->regmap, IMX585_REG_MODE_SELECT, IMX585_MODE_STREAMING, NULL);
 
 	dev_info(imx585->clientdev, "Start Streaming\n");
 	usleep_range(IMX585_STREAM_DELAY_US, IMX585_STREAM_DELAY_US + IMX585_STREAM_DELAY_RANGE_US);
@@ -1885,7 +1780,7 @@ static void imx585_stop_streaming(struct imx585 *imx585)
 	dev_info(imx585->clientdev, "Stop Streaming\n");
 
 	/* set stream off register */
-	ret = imx585_write_reg_1byte(imx585, IMX585_REG_MODE_SELECT, IMX585_MODE_STANDBY);
+	ret = cci_write(imx585->regmap, IMX585_REG_MODE_SELECT, IMX585_MODE_STANDBY, NULL);
 	if (ret)
 		dev_err(imx585->clientdev, "%s failed to stop stream\n", __func__);
 }
@@ -2159,11 +2054,11 @@ static int imx585_get_regulators(struct imx585 *imx585)
 static int imx585_check_module_exists(struct imx585 *imx585)
 {
 	int ret;
-	u32 val;
+	u64 val;
 
 	/* We don't actually have a CHIP ID register so we try to read from BLKLEVEL instead*/
-	ret = imx585_read_reg(imx585, IMX585_REG_BLKLEVEL,
-			      1, &val);
+	ret = cci_read(imx585->regmap, IMX585_REG_BLKLEVEL,
+			      &val, NULL);
 	if (ret) {
 		dev_err(imx585->clientdev, "failed to read chip reg, with error %d\n", ret);
 		return ret;
@@ -2214,6 +2109,11 @@ static int imx585_probe(struct i2c_client *client)
 	/* Check the hardware configuration in device tree */
 	if (imx585_check_hwcfg(dev, imx585))
 		return -EINVAL;
+
+	imx585->regmap = devm_cci_regmap_init_i2c(client, 16);
+	if (IS_ERR(imx585->regmap))
+		return dev_err_probe(dev, PTR_ERR(imx585->regmap),
+				     "failed to initialize CCI\n");
 
 	/* Get system clock (xclk) */
 	imx585->xclk = devm_clk_get(dev, NULL);
