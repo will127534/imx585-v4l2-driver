@@ -1056,8 +1056,8 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		ret = cci_write(imx585->regmap, IMX585_REG_SHR, shr, NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
-					    "Failed to write reg 0x%4.4x. error = %d\n",
-					    IMX585_REG_SHR, ret);
+					    "Failed to write IMX585_REG_SHR, error = %d\n",
+					    ret);
 		break;
 		}
 	case V4L2_CID_IMX585_HCG_GAIN:
@@ -1071,8 +1071,8 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		ret = cci_write(imx585->regmap, IMX585_REG_FDG_SEL0, ctrl->val, NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
-					    "Failed to write reg 0x%4.4x. error = %d\n",
-					    IMX585_REG_FDG_SEL0, ret);
+					    "Failed to write IMX585_REG_FDG_SEL0, error = %d\n",
+					    ret);
 		dev_info(imx585->clientdev, "V4L2_CID_HCG_ENABLE: %d\n", ctrl->val);
 		break;
 		}
@@ -1118,8 +1118,8 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		ret = cci_write(imx585->regmap, IMX585_REG_VMAX, imx585->vmax, NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
-					    "Failed to write reg 0x%4.4x. error = %d\n",
-					    IMX585_REG_VMAX, ret);
+					    "Failed to write IMX585_REG_VMAX, error = %d\n",
+					    ret);
 		break;
 		}
 	case V4L2_CID_HBLANK:
@@ -1139,8 +1139,8 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		ret = cci_write(imx585->regmap, IMX585_REG_HMAX, hmax, NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
-					    "Failed to write reg 0x%4.4x. error = %d\n",
-					    IMX585_REG_HMAX, ret);
+					    "Failed to write IMX585_REG_HMAX, error = %d\n",
+					    ret);
 		break;
 		}
 	case V4L2_CID_HFLIP:
@@ -1148,16 +1148,16 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		ret = cci_write(imx585->regmap, IMX585_FLIP_WINMODEH, ctrl->val, NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
-					    "Failed to write reg 0x%4.4x. error = %d\n",
-					    IMX585_FLIP_WINMODEH, ret);
+					    "Failed to write IMX585_FLIP_WINMODEH, error = %d\n",
+					    ret);
 		break;
 	case V4L2_CID_VFLIP:
 		dev_info(imx585->clientdev, "V4L2_CID_VFLIP : %d\n", ctrl->val);
 		ret = cci_write(imx585->regmap, IMX585_FLIP_WINMODEV, ctrl->val, NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
-					    "Failed to write reg 0x%4.4x. error = %d\n",
-					    IMX585_FLIP_WINMODEV, ret);
+					    "Failed to write IMX585_FLIP_WINMODEV, error = %d\n",
+					    ret);
 		break;
 	case V4L2_CID_BRIGHTNESS:
 		{
@@ -1170,8 +1170,8 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		ret = cci_write(imx585->regmap, IMX585_REG_BLKLEVEL, blacklevel, NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
-					    "Failed to write reg 0x%4.4x. error = %d\n",
-					    IMX585_REG_BLKLEVEL, ret);
+					    "Failed to write IMX585_REG_BLKLEVEL, error = %d\n",
+					    ret);
 		break;
 		}
 	case V4L2_CID_BAND_STOP_FILTER:
@@ -1186,13 +1186,13 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		ret = cci_write(imx585->regmap, IMX585_REG_EXP_TH_H, th[0], NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
-					    "Failed to write reg 0x%4.4x. error = %d\n",
-					    IMX585_REG_EXP_TH_H, ret);
+					    "Failed to write IMX585_REG_EXP_TH_H, error = %d\n",
+					    ret);
 		ret = cci_write(imx585->regmap, IMX585_REG_EXP_TH_L, th[1], NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
-					    "Failed to write reg 0x%4.4x. error = %d\n",
-					    IMX585_REG_EXP_TH_L, ret);
+					    "Failed to write IMX585_REG_EXP_TH_L, error = %d\n",
+					    ret);
 		dev_info(imx585->clientdev, "V4L2_CID_IMX585_HDR_DATASEL_TH : %d, %d\n", th[0], th[1]);
 		break;
 		}
@@ -1201,8 +1201,8 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		dev_info(imx585->clientdev, "V4L2_CID_IMX585_HDR_DATASEL_BK : %d\n", ctrl->val);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
-					    "Failed to write reg 0x%4.4x. error = %d\n",
-					    IMX585_REG_EXP_BK, ret);
+					    "Failed to write IMX585_REG_EXP_BK, error = %d\n",
+					    ret);
 		break;
 	case V4L2_CID_IMX585_HDR_GRAD_TH:{
 		const u32 *thr = (const u32 *)ctrl->p_new.p;
@@ -1210,13 +1210,13 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		ret = cci_write(imx585->regmap, IMX585_REG_CCMP1_EXP, thr[0], NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
-					    "Failed to write reg 0x%4.4x. error = %d\n",
-					    IMX585_REG_CCMP1_EXP, ret);
+					    "Failed to write IMX585_REG_CCMP1_EXP, error = %d\n",
+					    ret);
 		ret = cci_write(imx585->regmap, IMX585_REG_CCMP2_EXP, thr[1], NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
-					    "Failed to write reg 0x%4.4x. error = %d\n",
-					    IMX585_REG_CCMP2_EXP, ret);
+					    "Failed to write IMX585_REG_CCMP2_EXP, error = %d\n",
+					    ret);
 		dev_info(imx585->clientdev, "V4L2_CID_IMX585_HDR_GRAD_TH : %d, %d\n", thr[0], thr[1]);
 		break;
 		}
@@ -1224,8 +1224,8 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		ret = cci_write(imx585->regmap, IMX585_REG_ACMP1_EXP, ctrl->val, NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
-					    "Failed to write reg 0x%4.4x. error = %d\n",
-					    IMX585_REG_ACMP1_EXP, ret);
+					    "Failed to write IMX585_REG_ACMP1_EXP, error = %d\n",
+					    ret);
 		dev_info(imx585->clientdev, "V4L2_CID_IMX585_HDR_GRAD_COMP_L : %d\n", ctrl->val);
 		break;
 		}
@@ -1233,8 +1233,8 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		ret = cci_write(imx585->regmap, IMX585_REG_ACMP2_EXP, ctrl->val, NULL);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
-					    "Failed to write reg 0x%4.4x. error = %d\n",
-					    IMX585_REG_ACMP2_EXP, ret);
+					    "Failed to write IMX585_REG_ACMP2_EXP, error = %d\n",
+					    ret);
 		dev_info(imx585->clientdev, "V4L2_CID_IMX585_HDR_GRAD_COMP_H : %d\n", ctrl->val);
 		break;
 		}
@@ -1243,8 +1243,8 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		dev_info(imx585->clientdev, "IMX585_REG_EXP_GAIN : %d\n", ctrl->val);
 		if (ret)
 			dev_err_ratelimited(imx585->clientdev,
-					    "Failed to write reg 0x%4.4x. error = %d\n",
-					    IMX585_REG_EXP_GAIN, ret);
+					    "Failed to write IMX585_REG_EXP_GAIN, error = %d\n",
+					    ret);
 		break;
 	case V4L2_CID_WIDE_DYNAMIC_RANGE:
 		/* Already handled above. */
