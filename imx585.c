@@ -7,7 +7,6 @@
  * Modified by Will WHANG
  * Modified by sohonomura2020 in Soho Enterprise Ltd.
  */
-#include <linux/unaligned.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/gpio/consumer.h>
@@ -17,19 +16,21 @@
 #include <linux/of_graph.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
+#include <linux/unaligned.h>
+
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-event.h>
 #include <media/v4l2-fwnode.h>
 #include <media/v4l2-mediabus.h>
 
-#define V4L2_CID_IMX585_HDR_DATASEL_TH   (V4L2_CID_USER_IMX585_BASE + 0)
-#define V4L2_CID_IMX585_HDR_DATASEL_BK   (V4L2_CID_USER_IMX585_BASE + 1)
-#define V4L2_CID_IMX585_HDR_GRAD_TH      (V4L2_CID_USER_IMX585_BASE + 2)
-#define V4L2_CID_IMX585_HDR_GRAD_COMP_L  (V4L2_CID_USER_IMX585_BASE + 3)
-#define V4L2_CID_IMX585_HDR_GRAD_COMP_H  (V4L2_CID_USER_IMX585_BASE + 4)
-#define V4L2_CID_IMX585_HDR_GAIN         (V4L2_CID_USER_IMX585_BASE + 5)
-#define V4L2_CID_IMX585_HCG_GAIN         (V4L2_CID_USER_IMX585_BASE + 6)
+#define V4L2_CID_IMX585_HDR_DATASEL_TH   (V4L2_CID_USER_ASPEED_BASE + 0)
+#define V4L2_CID_IMX585_HDR_DATASEL_BK   (V4L2_CID_USER_ASPEED_BASE + 1)
+#define V4L2_CID_IMX585_HDR_GRAD_TH      (V4L2_CID_USER_ASPEED_BASE + 2)
+#define V4L2_CID_IMX585_HDR_GRAD_COMP_L  (V4L2_CID_USER_ASPEED_BASE + 3)
+#define V4L2_CID_IMX585_HDR_GRAD_COMP_H  (V4L2_CID_USER_ASPEED_BASE + 4)
+#define V4L2_CID_IMX585_HDR_GAIN         (V4L2_CID_USER_ASPEED_BASE + 5)
+#define V4L2_CID_IMX585_HCG_GAIN         (V4L2_CID_USER_ASPEED_BASE + 6)
 
 /* Standby or streaming mode */
 #define IMX585_REG_MODE_SELECT          0x3000
@@ -46,15 +47,15 @@
 #define IMX585_XCLR_DELAY_RANGE_US  1000
 
 /* Leader mode and XVS/XHS direction */
-#define IMX585_REG_XMSTA     0x3002
-#define IMX585_REG_XXS_DRV   0x30A6
-#define IMX585_REG_EXTMODE   0x30CE
-#define IMX585_REG_XXS_OUTSEL 0x30A4
+#define IMX585_REG_XMSTA      0x3002
+#define IMX585_REG_XXS_DRV    0x30a6
+#define IMX585_REG_EXTMODE    0x30ce
+#define IMX585_REG_XXS_OUTSEL 0x30a4
 
-/*XVS pulse length, 2^n H with n=0~3*/
-#define IMX585_REG_XVSLNG    0x30CC
+/* XVS pulse length, 2^n H with n=0~3 */
+#define IMX585_REG_XVSLNG    0x30cc
 /*XHS pulse length, 16*(2^n) Clock with n=0~3*/
-#define IMX585_REG_XHSLNG    0x30CD
+#define IMX585_REG_XHSLNG    0x30cd
 
 /* Clk selection */
 #define IMX585_INCK_SEL                 0x3014
@@ -75,7 +76,7 @@
 #define IMX585_VMAX_DEFAULT             2250
 
 /* HMAX internal HBLANK*/
-#define IMX585_REG_HMAX                 0x302C
+#define IMX585_REG_HMAX                 0x302c
 #define IMX585_HMAX_MAX                 0xffff
 
 /* SHR internal */
@@ -91,29 +92,29 @@
 #define IMX585_EXPOSURE_MAX             49865
 
 /* HDR threshold */
-#define IMX585_REG_EXP_TH_H             0x36D0
-#define IMX585_REG_EXP_TH_L             0x36D4
-#define IMX585_REG_EXP_BK               0x36E2
+#define IMX585_REG_EXP_TH_H             0x36d0
+#define IMX585_REG_EXP_TH_L             0x36d4
+#define IMX585_REG_EXP_BK               0x36e2
 
 /* Gradation compression control */
-#define IMX595_REG_CCMP_EN              0x36EF
-#define IMX585_REG_CCMP1_EXP            0x36E8
-#define IMX585_REG_CCMP2_EXP            0x36E4
-#define IMX585_REG_ACMP1_EXP            0x36EE
-#define IMX585_REG_ACMP2_EXP            0x36EC
+#define IMX595_REG_CCMP_EN              0x36ef
+#define IMX585_REG_CCMP1_EXP            0x36e8
+#define IMX585_REG_CCMP2_EXP            0x36e4
+#define IMX585_REG_ACMP1_EXP            0x36ee
+#define IMX585_REG_ACMP2_EXP            0x36ec
 
 /* HDR Gain Adder */
 #define IMX585_REG_EXP_GAIN             0x3081
 
 /* Black level control */
-#define IMX585_REG_BLKLEVEL             0x30DC
+#define IMX585_REG_BLKLEVEL             0x30dc
 #define IMX585_BLKLEVEL_DEFAULT         50
 
 /* Digital Clamp */
 #define IMX585_REG_DIGITAL_CLAMP        0x3458
 
 /* Analog gain control */
-#define IMX585_REG_ANALOG_GAIN          0x306C
+#define IMX585_REG_ANALOG_GAIN          0x306c
 #define IMX585_REG_FDG_SEL0             0x3030
 #define IMX585_ANA_GAIN_MIN_NORMAL      0
 #define IMX585_ANA_GAIN_MIN_HCG         34
@@ -170,7 +171,7 @@ static const u64 link_freqs[] = {
 	[IMX585_LINK_FREQ_1188MHZ] = 1188000000,
 };
 
-//min HMAX for 4-lane 4K full res mode, x2 for 2-lane, /2 for FHD
+/* min HMAX for 4-lane 4K full res mode, x2 for 2-lane, /2 for FHD */
 static const u16 HMAX_table_4lane_4K[] = {
 	[IMX585_LINK_FREQ_297MHZ] = 1584,
 	[IMX585_LINK_FREQ_360MHZ] = 1320,
@@ -204,7 +205,8 @@ static const char * const hdr_gain_adder_menu[] = {
 	"+29.1dB",
 };
 
-/*Honestly I don't know why there are two 50% 50% blend
+/*
+ * Honestly I don't know why there are two 50% 50% blend
  * but it is in the datasheet
  */
 static const char * const hdr_data_blender_menu[] = {
@@ -564,7 +566,8 @@ static const struct imx585_reg mode_1080_regs_12bit[] = {
 
 /* IMX585 Register List - END*/
 
-/* For Mode List:
+/* 
+ * For Mode List:
  * Default:
  *   12Bit - FHD, 4K
  * ClearHDR Enabled:
@@ -736,8 +739,9 @@ struct imx585 {
 	/* Clear HDR mode */
 	bool clear_HDR;
 
-	/* Sync Mode*/
-	/* 0 = Internal Sync Leader Mode
+	/* 
+	 * Sync Mode
+	 * 0 = Internal Sync Leader Mode
 	 * 1 = External Sync Leader Mode
 	 * 2 = Follower Mode
 	 * The datasheet wording is very confusing but basically:
@@ -811,12 +815,8 @@ static inline void get_mode_table(struct imx585 *imx585, unsigned int code,
 	}
 }
 
-/* ------------------------------------------------------------------
- * Optional IR-cut helper
- * ------------------------------------------------------------------
- */
-
-/* One-byte “command” sent to the IR-cut MCU at imx585->ircut_client   */
+/* Optional IR-cut helper */
+/* One-byte “command” sent to the IR-cut MCU at imx585->ircut_client */
 static int imx585_ircut_write(struct imx585 *imx585, u8 cmd)
 {
 	struct i2c_client *client = imx585->ircut_client;
@@ -1013,7 +1013,8 @@ static int imx585_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	return 0;
 }
 
-/* For HDR mode, Gain is limited to 0~80 and HCG is disabled
+/* 
+ * For HDR mode, Gain is limited to 0~80 and HCG is disabled
  * For Normal mode, Gain is limited to 0~240
  */
 static void imx585_update_gain_limits(struct imx585 *imx585)
@@ -1076,8 +1077,6 @@ static void imx585_set_framing_limits(struct imx585 *imx585)
 	imx585->HMAX = mode->default_HMAX;
 
 	pixel_rate = (u64)mode->width * IMX585_PIXEL_RATE;
-	/* In the case where ClearHDR is enabled, HMAX is effectly doubled */
-	/* So pixel rate is half with the same HMAX with ClearHDR */
 	do_div(pixel_rate, mode->min_HMAX);
 	__v4l2_ctrl_modify_range(imx585->pixel_rate, pixel_rate, pixel_rate, 1, pixel_rate);
 
@@ -1210,7 +1209,8 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 			 */
 			imx585->VMAX = (mode->height + ctrl->val) & ~1u; //Always a multiple of 2
 
-			/* New maximum exposure limits,
+			/* 
+			 * New maximum exposure limits,
 			 * modifying the range and make sure we are not exceed the new maximum.
 			 */
 			current_exposure = clamp_t(u32, current_exposure, IMX585_EXPOSURE_MIN,
