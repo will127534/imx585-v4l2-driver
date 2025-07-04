@@ -265,16 +265,16 @@ struct imx585_mode {
 	u8   hmax_div;
 
 	/* minimum H-timing */
-	u16 min_HMAX;
+	u16 min_hmax;
 
 	/* minimum V-timing */
-	u64 min_VMAX;
+	u64 min_vmax;
 
 	/* default H-timing */
-	u16 default_HMAX;
+	u16 default_hmax;
 
 	/* default V-timing */
-	u64 default_VMAX;
+	u64 default_vmax;
 
 	/* Analog crop rectangle. */
 	struct v4l2_rect crop;
@@ -596,10 +596,10 @@ struct imx585_mode supported_modes[] = {
 		.width = 1928,
 		.height = 1090,
 		.hmax_div = 1,
-		.min_HMAX = 366,
-		.min_VMAX = IMX585_VMAX_DEFAULT,
-		.default_HMAX = 366,
-		.default_VMAX = IMX585_VMAX_DEFAULT,
+		.min_hmax = 366,
+		.min_vmax = IMX585_VMAX_DEFAULT,
+		.default_hmax = 366,
+		.default_vmax = IMX585_VMAX_DEFAULT,
 		.crop = {
 			.left = IMX585_PIXEL_ARRAY_LEFT,
 			.top = IMX585_PIXEL_ARRAY_TOP,
@@ -615,10 +615,10 @@ struct imx585_mode supported_modes[] = {
 		/* 4K60 All pixel */
 		.width = 3856,
 		.height = 2180,
-		.min_HMAX = 550,
-		.min_VMAX = IMX585_VMAX_DEFAULT,
-		.default_HMAX = 550,
-		.default_VMAX = IMX585_VMAX_DEFAULT,
+		.min_hmax = 550,
+		.min_vmax = IMX585_VMAX_DEFAULT,
+		.default_hmax = 550,
+		.default_vmax = IMX585_VMAX_DEFAULT,
 		.hmax_div = 1,
 		.crop = {
 			.left = IMX585_PIXEL_ARRAY_LEFT,
@@ -755,8 +755,8 @@ struct imx585 {
 	u32 sync_mode;
 
 	/* Tracking sensor VMAX/HMAX value */
-	u16 HMAX;
-	u32 VMAX;
+	u16 hmax;
+	u32 vmax;
 
 	/*
 	 * Mutex for serialized access:
@@ -1055,10 +1055,10 @@ static void imx585_update_hmax(struct imx585 *imx585)
 		u32 h = factor / supported_modes[i].hmax_div;
 		u64 v = IMX585_VMAX_DEFAULT * hdr_factor;
 
-		supported_modes[i].min_HMAX     = h;
-		supported_modes[i].default_HMAX = h;
-		supported_modes[i].min_VMAX     = v;
-		supported_modes[i].default_VMAX = v;
+		supported_modes[i].min_hmax     = h;
+		supported_modes[i].default_hmax = h;
+		supported_modes[i].min_vmax     = v;
+		supported_modes[i].default_vmax = v;
 		dev_info(&client->dev, "\tvmax: %lld x hmax: %d\n", v, h);
 	}
 }
@@ -1074,15 +1074,15 @@ static void imx585_set_framing_limits(struct imx585 *imx585)
 
 	dev_info(&client->dev, "mode: %d x %d\n", mode->width, mode->height);
 
-	imx585->VMAX = mode->default_VMAX;
-	imx585->HMAX = mode->default_HMAX;
+	imx585->vmax = mode->default_vmax;
+	imx585->hmax = mode->default_hmax;
 
 	pixel_rate = (u64)mode->width * IMX585_PIXEL_RATE;
-	do_div(pixel_rate, mode->min_HMAX);
+	do_div(pixel_rate, mode->min_hmax);
 	__v4l2_ctrl_modify_range(imx585->pixel_rate, pixel_rate, pixel_rate, 1, pixel_rate);
 
-	//int default_hblank = mode->default_HMAX*IMX585_PIXEL_RATE/72000000-IMX585_NATIVE_WIDTH;
-	default_hblank = mode->default_HMAX * pixel_rate;
+	//int default_hblank = mode->default_hmax*IMX585_PIXEL_RATE/72000000-IMX585_NATIVE_WIDTH;
+	default_hblank = mode->default_hmax * pixel_rate;
 	do_div(default_hblank, IMX585_PIXEL_RATE);
 	default_hblank = default_hblank - mode->width;
 
@@ -1094,17 +1094,17 @@ static void imx585_set_framing_limits(struct imx585 *imx585)
 	__v4l2_ctrl_s_ctrl(imx585->hblank, default_hblank);
 
 	/* Update limits and set FPS to default */
-	__v4l2_ctrl_modify_range(imx585->vblank, mode->min_VMAX - mode->height,
+	__v4l2_ctrl_modify_range(imx585->vblank, mode->min_vmax - mode->height,
 				 IMX585_VMAX_MAX - mode->height,
-				 1, mode->default_VMAX - mode->height);
-	__v4l2_ctrl_s_ctrl(imx585->vblank, mode->default_VMAX - mode->height);
+				 1, mode->default_vmax - mode->height);
+	__v4l2_ctrl_s_ctrl(imx585->vblank, mode->default_vmax - mode->height);
 
 	__v4l2_ctrl_modify_range(imx585->exposure, IMX585_EXPOSURE_MIN,
-				 imx585->VMAX - IMX585_SHR_MIN_HDR, 1,
+				 imx585->vmax - IMX585_SHR_MIN_HDR, 1,
 				 IMX585_EXPOSURE_DEFAULT);
-	dev_info(&client->dev, "default vmax: %lld x hmax: %d\n", mode->min_VMAX, mode->min_HMAX);
+	dev_info(&client->dev, "default vmax: %lld x hmax: %d\n", mode->min_vmax, mode->min_hmax);
 	dev_info(&client->dev, "Setting default HBLANK : %llu, VBLANK : %llu PixelRate: %lld\n",
-		 default_hblank, mode->default_VMAX - mode->height, pixel_rate);
+		 default_hblank, mode->default_vmax - mode->height, pixel_rate);
 }
 
 static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
@@ -1157,18 +1157,18 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 	switch (ctrl->id) {
 	case V4L2_CID_EXPOSURE:
 		{
-			u32 shr;
+		u32 shr;
 
-			shr = (imx585->VMAX - ctrl->val)  & ~1u; //Always a multiple of 2
-			dev_info(&client->dev, "V4L2_CID_EXPOSURE : %d\n", ctrl->val);
-			dev_info(&client->dev, "\tVMAX:%d, HMAX:%d\n", imx585->VMAX, imx585->HMAX);
-			dev_info(&client->dev, "\tSHR:%d\n", shr);
+		shr = (imx585->vmax - ctrl->val)  & ~1u; //Always a multiple of 2
+		dev_info(&client->dev, "V4L2_CID_EXPOSURE : %d\n", ctrl->val);
+		dev_info(&client->dev, "\tVMAX:%d, HMAX:%d\n", imx585->vmax, imx585->hmax);
+		dev_info(&client->dev, "\tSHR:%d\n", shr);
 
-			ret = imx585_write_reg_3byte(imx585, IMX585_REG_SHR, shr);
-			if (ret)
-				dev_err_ratelimited(&client->dev,
-						    "Failed to write reg 0x%4.4x. error = %d\n",
-						    IMX585_REG_SHR, ret);
+		ret = imx585_write_reg_3byte(imx585, IMX585_REG_SHR, shr);
+		if (ret)
+			dev_err_ratelimited(&client->dev,
+					    "Failed to write reg 0x%4.4x. error = %d\n",
+					    IMX585_REG_SHR, ret);
 		break;
 		}
 	case V4L2_CID_IMX585_HCG_GAIN:
@@ -1202,56 +1202,56 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		}
 	case V4L2_CID_VBLANK:
 		{
-			u32 current_exposure = imx585->exposure->cur.val;
-			u32 min_SHR = (imx585->clear_hdr) ? IMX585_SHR_MIN_HDR : IMX585_SHR_MIN;
-			/*
-			 * The VBLANK control may change the limits of usable exposure, so check
-			 * and adjust if necessary.
-			 */
-			imx585->VMAX = (mode->height + ctrl->val) & ~1u; //Always a multiple of 2
+		u32 current_exposure = imx585->exposure->cur.val;
+		u32 min_shr = (imx585->clear_hdr) ? IMX585_SHR_MIN_HDR : IMX585_SHR_MIN;
+		/*
+		 * The VBLANK control may change the limits of usable exposure, so check
+		 * and adjust if necessary.
+		 */
+		imx585->vmax = (mode->height + ctrl->val) & ~1u; //Always a multiple of 2
 
-			/* 
-			 * New maximum exposure limits,
-			 * modifying the range and make sure we are not exceed the new maximum.
-			 */
-			current_exposure = clamp_t(u32, current_exposure, IMX585_EXPOSURE_MIN,
-						   imx585->VMAX - min_SHR);
-			__v4l2_ctrl_modify_range(imx585->exposure, IMX585_EXPOSURE_MIN,
-						 imx585->VMAX - min_SHR, 1,
-						 current_exposure);
+		/* 
+		 * New maximum exposure limits,
+		 * modifying the range and make sure we are not exceed the new maximum.
+		 */
+		current_exposure = clamp_t(u32, current_exposure, IMX585_EXPOSURE_MIN,
+					   imx585->vmax - min_shr);
+		__v4l2_ctrl_modify_range(imx585->exposure, IMX585_EXPOSURE_MIN,
+					 imx585->vmax - min_shr, 1,
+					 current_exposure);
 
-			dev_info(&client->dev, "V4L2_CID_VBLANK : %d\n", ctrl->val);
-			dev_info(&client->dev, "\tVMAX:%d, HMAX:%d\n", imx585->VMAX, imx585->HMAX);
-			dev_info(&client->dev, "Update exposure limits: max:%d, min:%d, current:%d\n",
-				 imx585->VMAX - min_SHR,
-				 IMX585_EXPOSURE_MIN, current_exposure);
+		dev_info(&client->dev, "V4L2_CID_VBLANK : %d\n", ctrl->val);
+		dev_info(&client->dev, "\tVMAX:%d, HMAX:%d\n", imx585->vmax, imx585->hmax);
+		dev_info(&client->dev, "Update exposure limits: max:%d, min:%d, current:%d\n",
+			 imx585->vmax - min_shr,
+			 IMX585_EXPOSURE_MIN, current_exposure);
 
-			ret = imx585_write_reg_3byte(imx585, IMX585_REG_VMAX, imx585->VMAX);
-			if (ret)
-				dev_err_ratelimited(&client->dev,
-						    "Failed to write reg 0x%4.4x. error = %d\n",
-						    IMX585_REG_VMAX, ret);
+		ret = imx585_write_reg_3byte(imx585, IMX585_REG_VMAX, imx585->vmax);
+		if (ret)
+			dev_err_ratelimited(&client->dev,
+					    "Failed to write reg 0x%4.4x. error = %d\n",
+					    IMX585_REG_VMAX, ret);
 		break;
 		}
 	case V4L2_CID_HBLANK:
 		{
-			u64 pixel_rate;
-			u64 hmax;
+		u64 pixel_rate;
+		u64 hmax;
 
-			pixel_rate = (u64)mode->width * IMX585_PIXEL_RATE;
-			do_div(pixel_rate, mode->min_HMAX);
-			hmax = (u64)(mode->width + ctrl->val) * IMX585_PIXEL_RATE;
-			do_div(hmax, pixel_rate);
-			imx585->HMAX = hmax;
+		pixel_rate = (u64)mode->width * IMX585_PIXEL_RATE;
+		do_div(pixel_rate, mode->min_hmax);
+		hmax = (u64)(mode->width + ctrl->val) * IMX585_PIXEL_RATE;
+		do_div(hmax, pixel_rate);
+		imx585->hmax = hmax;
 
-			dev_info(&client->dev, "V4L2_CID_HBLANK : %d\n", ctrl->val);
-			dev_info(&client->dev, "\tHMAX : %d\n", imx585->HMAX);
+		dev_info(&client->dev, "V4L2_CID_HBLANK : %d\n", ctrl->val);
+		dev_info(&client->dev, "\tHMAX : %d\n", imx585->hmax);
 
-			ret = imx585_write_reg_2byte(imx585, IMX585_REG_HMAX, hmax);
-			if (ret)
-				dev_err_ratelimited(&client->dev,
-						    "Failed to write reg 0x%4.4x. error = %d\n",
-						    IMX585_REG_HMAX, ret);
+		ret = imx585_write_reg_2byte(imx585, IMX585_REG_HMAX, hmax);
+		if (ret)
+			dev_err_ratelimited(&client->dev,
+					    "Failed to write reg 0x%4.4x. error = %d\n",
+					    IMX585_REG_HMAX, ret);
 		break;
 		}
 	case V4L2_CID_HFLIP:
