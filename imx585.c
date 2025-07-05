@@ -872,47 +872,6 @@ static u32 imx585_get_format_code(struct imx585 *imx585, u32 code)
 	return codes_normal[i];
 }
 
-static void imx585_set_default_format(struct imx585 *imx585)
-{
-	/* Set default mode to max resolution */
-	imx585->mode = &supported_modes[0];
-	if (imx585->mono)
-		imx585->fmt_code = MEDIA_BUS_FMT_Y12_1X12;
-	else
-		imx585->fmt_code = MEDIA_BUS_FMT_SRGGB12_1X12;
-}
-
-static int imx585_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
-{
-	struct imx585 *imx585 = to_imx585(sd);
-	struct v4l2_mbus_framefmt *try_fmt_img =
-		v4l2_subdev_state_get_format(fh->state, 0);
-	struct v4l2_rect *try_crop;
-
-	mutex_lock(&imx585->mutex);
-
-	/* Initialize try_fmt for the image pad */
-	try_fmt_img->width = supported_modes[0].width;
-	try_fmt_img->height = supported_modes[0].height;
-	if (imx585->mono)
-		try_fmt_img->code = imx585_get_format_code(imx585, MEDIA_BUS_FMT_Y12_1X12);
-	else
-		try_fmt_img->code = imx585_get_format_code(imx585, MEDIA_BUS_FMT_SRGGB12_1X12);
-
-	try_fmt_img->field = V4L2_FIELD_NONE;
-
-	/* Initialize try_crop */
-	try_crop = v4l2_subdev_state_get_crop(fh->state, 0);
-	try_crop->left = IMX585_PIXEL_ARRAY_LEFT;
-	try_crop->top = IMX585_PIXEL_ARRAY_TOP;
-	try_crop->width = IMX585_PIXEL_ARRAY_WIDTH;
-	try_crop->height = IMX585_PIXEL_ARRAY_HEIGHT;
-
-	mutex_unlock(&imx585->mutex);
-
-	return 0;
-}
-
 /* 
  * For HDR mode, Gain is limited to 0~80 and HCG is disabled
  * For Normal mode, Gain is limited to 0~240
@@ -960,9 +919,8 @@ static void imx585_update_hmax(struct imx585 *imx585)
 	}
 }
 
-static void imx585_set_framing_limits(struct imx585 *imx585)
+static void imx585_set_framing_limits(struct imx585 *imx585, const struct imx585_mode *mode)
 {
-	const struct imx585_mode *mode = imx585->mode;
 	u64 default_hblank, max_hblank;
 	u64 pixel_rate;
 
@@ -1006,9 +964,22 @@ static void imx585_set_framing_limits(struct imx585 *imx585)
 static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct imx585 *imx585 = container_of(ctrl->handler, struct imx585, ctrl_handler);
-	const struct imx585_mode *mode = imx585->mode;
+	const struct imx585_mode *mode;
+	struct v4l2_mbus_framefmt *fmt;
 	const struct imx585_mode *mode_list;
+	struct v4l2_subdev_state *state;
 	unsigned int code, num_modes;
+
+	dev_info(imx585->clientdev,
+		 "ctrl(id:0x%x,val:0x%x)\n",
+		 ctrl->id, ctrl->val);
+
+	state = v4l2_subdev_get_locked_active_state(&imx585->sd);
+	fmt = v4l2_subdev_state_get_format(state, 0);
+
+	get_mode_table(imx585, fmt->code, &mode_list, &num_modes);
+	mode = v4l2_find_nearest_size(mode_list, num_modes, width, height,
+				      fmt->width, fmt->height);
 
 	int ret = 0;
 	/*
@@ -1032,12 +1003,12 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 			else
 				code = imx585_get_format_code(imx585, MEDIA_BUS_FMT_SRGGB12_1X12);
 			get_mode_table(imx585, code, &mode_list, &num_modes);
-			imx585->mode = v4l2_find_nearest_size(mode_list,
+			mode = v4l2_find_nearest_size(mode_list,
 							      num_modes,
 							      width, height,
-							      imx585->mode->width,
-							      imx585->mode->height);
-			imx585_set_framing_limits(imx585);
+							      fmt->width,
+							      fmt->height);
+			imx585_set_framing_limits(imx585, mode);
 		}
 		break;
 	}
@@ -1046,7 +1017,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 	 * Applying V4L2 control value only happens
 	 * when power is up for streaming
 	 */
-	if (pm_runtime_get_if_in_use(imx585->clientdev) == 0)
+	if (!pm_runtime_get_if_active(imx585->clientdev))
 		return 0;
 
 	switch (ctrl->id) {
@@ -1362,15 +1333,13 @@ static int imx585_init_controls(struct imx585 *imx585)
 {
 	struct v4l2_ctrl_handler *ctrl_hdlr;
 	struct v4l2_fwnode_device_properties props;
+	const struct imx585_mode *mode = &supported_modes[0];
 	int ret;
 
 	ctrl_hdlr = &imx585->ctrl_handler;
 	ret = v4l2_ctrl_handler_init(ctrl_hdlr, 32);
 	if (ret)
 		return ret;
-
-	mutex_init(&imx585->mutex);
-	ctrl_hdlr->lock = &imx585->mutex;
 
 	/*
 	 * Create the controls here, but mode specific limits are setup
@@ -1379,9 +1348,9 @@ static int imx585_init_controls(struct imx585 *imx585)
 	/* By default, PIXEL_RATE is read only */
 	imx585->pixel_rate = v4l2_ctrl_new_std(ctrl_hdlr, &imx585_ctrl_ops,
 					       V4L2_CID_PIXEL_RATE,
-					       0xffff,
-					       0xffff, 1,
-					       0xffff);
+					       0xfffff,
+					       0xfffff, 1,
+					       0xfffff);
 
 	/* LINK_FREQ is also read only */
 	imx585->link_freq =
@@ -1472,13 +1441,14 @@ static int imx585_init_controls(struct imx585 *imx585)
 	imx585->sd.ctrl_handler = ctrl_hdlr;
 
 	/* Setup exposure and frame/line length limits. */
-	imx585_set_framing_limits(imx585);
+	mutex_lock(imx585->ctrl_handler.lock);
+	imx585_set_framing_limits(imx585, mode);
+	mutex_unlock(imx585->ctrl_handler.lock);
 
 	return 0;
 
 error:
 	v4l2_ctrl_handler_free(ctrl_hdlr);
-	mutex_destroy(&imx585->mutex);
 
 	return ret;
 }
@@ -1554,162 +1524,101 @@ static int imx585_enum_frame_size(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static void imx585_reset_colorspace(const struct imx585_mode *mode, struct v4l2_mbus_framefmt *fmt)
-{
-	fmt->colorspace = V4L2_COLORSPACE_RAW;
-	fmt->ycbcr_enc = V4L2_MAP_YCBCR_ENC_DEFAULT(fmt->colorspace);
-	fmt->quantization = V4L2_MAP_QUANTIZATION_DEFAULT(true,
-							  fmt->colorspace,
-							  fmt->ycbcr_enc);
-	fmt->xfer_func = V4L2_MAP_XFER_FUNC_DEFAULT(fmt->colorspace);
-}
-
-static void imx585_update_image_pad_format(struct imx585 *imx585,
-					   const struct imx585_mode *mode,
-					   struct v4l2_subdev_format *fmt)
-{
-	fmt->format.width = mode->width;
-	fmt->format.height = mode->height;
-	fmt->format.field = V4L2_FIELD_NONE;
-	imx585_reset_colorspace(mode, &fmt->format);
-}
-
-static int imx585_get_pad_format(struct v4l2_subdev *sd,
-				 struct v4l2_subdev_state *sd_state,
-				 struct v4l2_subdev_format *fmt)
-{
-	struct imx585 *imx585 = to_imx585(sd);
-
-	mutex_lock(&imx585->mutex);
-
-	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
-		struct v4l2_mbus_framefmt *try_fmt =
-			v4l2_subdev_state_get_format(sd_state, 0);
-		/* update the code which could change due to vflip or hflip: */
-		try_fmt->code = imx585_get_format_code(imx585, try_fmt->code);
-		fmt->format = *try_fmt;
-	} else {
-		imx585_update_image_pad_format(imx585, imx585->mode, fmt);
-		fmt->format.code =
-			   imx585_get_format_code(imx585, imx585->fmt_code);
-	}
-
-	mutex_unlock(&imx585->mutex);
-	return 0;
-}
-
 static int imx585_set_pad_format(struct v4l2_subdev *sd,
 				 struct v4l2_subdev_state *sd_state,
 				 struct v4l2_subdev_format *fmt)
 {
-	struct v4l2_mbus_framefmt *framefmt;
+	struct v4l2_mbus_framefmt *format;
 	const struct imx585_mode *mode;
 	struct imx585 *imx585 = to_imx585(sd);
-
-	mutex_lock(&imx585->mutex);
-
-
 	const struct imx585_mode *mode_list;
 	unsigned int num_modes;
 
-	/* Bayer order varies with flips */
-	fmt->format.code = imx585_get_format_code(imx585, fmt->format.code);
 	get_mode_table(imx585, fmt->format.code, &mode_list, &num_modes);
-	mode = v4l2_find_nearest_size(mode_list,
-				      num_modes,
-				      width, height,
-				      fmt->format.width,
-				      fmt->format.height);
-	imx585_update_image_pad_format(imx585, mode, fmt);
-	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
-		framefmt = v4l2_subdev_state_get_format(sd_state, 0);
-		*framefmt = fmt->format;
-	} else if (imx585->mode != mode ||
-		   imx585->fmt_code != fmt->format.code) {
-		imx585->mode = mode;
-		imx585->fmt_code = fmt->format.code;
-		imx585_set_framing_limits(imx585);
-	}
+	mode = v4l2_find_nearest_size(mode_list, num_modes, width, height,
+				      fmt->format.width, fmt->format.height);
 
+	fmt->format.width = mode->width;
+	fmt->format.height = mode->height;
+	fmt->format.field = V4L2_FIELD_NONE;
+	fmt->format.colorspace = V4L2_COLORSPACE_RAW;
+	fmt->format.ycbcr_enc = V4L2_YCBCR_ENC_601;
+	fmt->format.quantization = V4L2_QUANTIZATION_FULL_RANGE;
+	fmt->format.xfer_func = V4L2_XFER_FUNC_NONE;
 
-	mutex_unlock(&imx585->mutex);
+	format = v4l2_subdev_state_get_format(sd_state, 0);
+
+	if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE)
+		imx585_set_framing_limits(imx585, mode);
+
+	*format = fmt->format;
 
 	return 0;
 }
 
-static const struct v4l2_rect *
-__imx585_get_pad_crop(struct imx585 *imx585,
-		      struct v4l2_subdev_state *sd_state,
-		      unsigned int pad, enum v4l2_subdev_format_whence which)
-{
-	switch (which) {
-	case V4L2_SUBDEV_FORMAT_TRY:
-		return v4l2_subdev_state_get_crop(sd_state, 0);
-	case V4L2_SUBDEV_FORMAT_ACTIVE:
-		return &imx585->mode->crop;
-	}
-
-	return NULL;
-}
-
 /* Start streaming */
-static int imx585_start_streaming(struct imx585 *imx585)
+static int imx585_enable_streams(struct v4l2_subdev *sd,
+				 struct v4l2_subdev_state *state, u32 pad,
+				 u64 streams_mask)
 {
-	const struct imx585_reg_list *reg_list;
+	struct imx585 *imx585 = to_imx585(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
 	int ret;
 
-	if (!imx585->common_regs_written) {
-		ret = cci_multi_reg_write(imx585->regmap, common_regs,
-					  ARRAY_SIZE(common_regs), NULL);
-		if (ret) {
-			dev_err(imx585->clientdev, "%s failed to set common settings\n", __func__);
-			return ret;
-		}
+	ret = pm_runtime_resume_and_get(&client->dev);
+	if (ret < 0)
+		goto err_rpm_put;
 
-		cci_write(imx585->regmap, IMX585_INCK_SEL, imx585->inck_sel_val, NULL);
-		cci_write(imx585->regmap, IMX585_REG_BLKLEVEL, IMX585_BLKLEVEL_DEFAULT, NULL);
-		cci_write(imx585->regmap, IMX585_DATARATE_SEL,
-				       link_freqs_reg_value[imx585->link_freq_idx], NULL);
-
-		if (imx585->lane_count == 2)
-			cci_write(imx585->regmap, IMX585_LANEMODE, 0x01, NULL);
-		else
-			cci_write(imx585->regmap, IMX585_LANEMODE, 0x03, NULL);
-
-		if (imx585->mono)
-			cci_write(imx585->regmap, IMX585_BIN_MODE, 0x01, NULL);
-		else
-			cci_write(imx585->regmap, IMX585_BIN_MODE, 0x00, NULL);
-
-		if (imx585->sync_mode == SYNC_INT_FOLLOWER) { //External Sync Leader Mode
-			dev_info(imx585->clientdev, "Int Sync Follower Mode, enable XVS input\n");
-			cci_write(imx585->regmap, IMX585_REG_EXTMODE, 0x01, NULL);
-			// Enable XHS output, but XVS is input
-			cci_write(imx585->regmap, IMX585_REG_XXS_DRV, 0x03, NULL);
-			// Disable XVS OUT
-			cci_write(imx585->regmap, IMX585_REG_XXS_OUTSEL, 0x08, NULL);
-		} else if (imx585->sync_mode == SYNC_INT_LEADER) {
-			dev_info(imx585->clientdev, "Int Sync Leader Mode, enable output\n");
-			cci_write(imx585->regmap, IMX585_REG_EXTMODE, 0x00, NULL);
-			// Enable XHS and XVS output
-			cci_write(imx585->regmap, IMX585_REG_XXS_DRV, 0x00, NULL);
-			cci_write(imx585->regmap, IMX585_REG_XXS_OUTSEL, 0x0A, NULL);
-		} else {
-			dev_info(imx585->clientdev, "Follower Mode, enable XVS/XHS input\n");
-			//For follower mode, switch both of them to input
-			cci_write(imx585->regmap, IMX585_REG_XXS_DRV, 0x0F, NULL);
-			cci_write(imx585->regmap, IMX585_REG_XXS_OUTSEL, 0x00, NULL);
-		}
-		imx585->common_regs_written = true;
-		dev_info(imx585->clientdev, "common_regs_written\n");
+	ret = cci_multi_reg_write(imx585->regmap, common_regs,
+				  ARRAY_SIZE(common_regs), NULL);
+	if (ret) {
+		dev_err(imx585->clientdev, "%s failed to set common settings\n", __func__);
+		goto err_rpm_put;
 	}
 
+	cci_write(imx585->regmap, IMX585_INCK_SEL, imx585->inck_sel_val, NULL);
+	cci_write(imx585->regmap, IMX585_REG_BLKLEVEL, IMX585_BLKLEVEL_DEFAULT, NULL);
+	cci_write(imx585->regmap, IMX585_DATARATE_SEL,
+			       link_freqs_reg_value[imx585->link_freq_idx], NULL);
+
+	if (imx585->lane_count == 2)
+		cci_write(imx585->regmap, IMX585_LANEMODE, 0x01, NULL);
+	else
+		cci_write(imx585->regmap, IMX585_LANEMODE, 0x03, NULL);
+
+	if (imx585->mono)
+		cci_write(imx585->regmap, IMX585_BIN_MODE, 0x01, NULL);
+	else
+		cci_write(imx585->regmap, IMX585_BIN_MODE, 0x00, NULL);
+
+	if (imx585->sync_mode == SYNC_INT_FOLLOWER) { //External Sync Leader Mode
+		dev_info(imx585->clientdev, "Int Sync Follower Mode, enable XVS input\n");
+		cci_write(imx585->regmap, IMX585_REG_EXTMODE, 0x01, NULL);
+		// Enable XHS output, but XVS is input
+		cci_write(imx585->regmap, IMX585_REG_XXS_DRV, 0x03, NULL);
+		// Disable XVS OUT
+		cci_write(imx585->regmap, IMX585_REG_XXS_OUTSEL, 0x08, NULL);
+	} else if (imx585->sync_mode == SYNC_INT_LEADER) {
+		dev_info(imx585->clientdev, "Int Sync Leader Mode, enable output\n");
+		cci_write(imx585->regmap, IMX585_REG_EXTMODE, 0x00, NULL);
+		// Enable XHS and XVS output
+		cci_write(imx585->regmap, IMX585_REG_XXS_DRV, 0x00, NULL);
+		cci_write(imx585->regmap, IMX585_REG_XXS_OUTSEL, 0x0A, NULL);
+	} else {
+		dev_info(imx585->clientdev, "Follower Mode, enable XVS/XHS input\n");
+		//For follower mode, switch both of them to input
+		cci_write(imx585->regmap, IMX585_REG_XXS_DRV, 0x0F, NULL);
+		cci_write(imx585->regmap, IMX585_REG_XXS_OUTSEL, 0x00, NULL);
+	}
+	imx585->common_regs_written = true;
+	dev_info(imx585->clientdev, "common_regs_written\n");
+
 	/* Apply default values of current mode */
-	reg_list = &imx585->mode->reg_list;
-	ret = cci_multi_reg_write(imx585->regmap, reg_list->regs, reg_list->num_of_regs, NULL);
+	//reg_list = &supported_modes[0]->reg_list;
+	ret = cci_multi_reg_write(imx585->regmap, supported_modes[0].reg_list.regs, supported_modes[0].reg_list.num_of_regs, NULL);
 	if (ret) {
 		dev_err(imx585->clientdev, "%s failed to set mode\n", __func__);
-		return ret;
+		goto err_rpm_put;
 	}
 
 	if (imx585->clear_hdr) {
@@ -1717,7 +1626,7 @@ static int imx585_start_streaming(struct imx585 *imx585)
 					  ARRAY_SIZE(common_clearHDR_mode), NULL);
 		if (ret) {
 			dev_err(imx585->clientdev, "%s failed to set ClearHDR settings\n", __func__);
-			return ret;
+			goto err_rpm_put;
 		}
 		//16bit mode is linear, 12bit mode we need to enable gradation compression
 		switch (imx585->fmt_code) {
@@ -1750,7 +1659,7 @@ static int imx585_start_streaming(struct imx585 *imx585)
 					  ARRAY_SIZE(common_normal_mode), NULL);
 		if (ret) {
 			dev_err(imx585->clientdev, "%s failed to set Normal settings\n", __func__);
-			return ret;
+			goto err_rpm_put;
 		}
 		dev_info(imx585->clientdev, "normal_regs_written\n");
 	}
@@ -1762,7 +1671,7 @@ static int imx585_start_streaming(struct imx585 *imx585)
 	ret =  __v4l2_ctrl_handler_setup(imx585->sd.ctrl_handler);
 	if (ret) {
 		dev_err(imx585->clientdev, "%s failed to apply user values\n", __func__);
-		return ret;
+		goto err_rpm_put;
 	}
 
 	if (imx585->sync_mode == SYNC_INT_FOLLOWER || imx585->sync_mode == SYNC_INT_LEADER) {
@@ -1772,71 +1681,44 @@ static int imx585_start_streaming(struct imx585 *imx585)
 
 	/* Set stream on register */
 	ret = cci_write(imx585->regmap, IMX585_REG_MODE_SELECT, IMX585_MODE_STREAMING, NULL);
-
+	if (ret)
+		goto err_rpm_put;
 	dev_info(imx585->clientdev, "Start Streaming\n");
 	usleep_range(IMX585_STREAM_DELAY_US, IMX585_STREAM_DELAY_US + IMX585_STREAM_DELAY_RANGE_US);
+
+	/* vflip, hflip and HDR cannot change during streaming */
+	__v4l2_ctrl_grab(imx585->vflip, true);
+	__v4l2_ctrl_grab(imx585->hflip, true);
+	__v4l2_ctrl_grab(imx585->hdr_mode, true);
+
+	return 0;
+
+err_rpm_put:
+	pm_runtime_mark_last_busy(&client->dev);
+	pm_runtime_put_autosuspend(&client->dev);
 	return ret;
 }
 
 /* Stop streaming */
-static void imx585_stop_streaming(struct imx585 *imx585)
+static int imx585_disable_streams(struct v4l2_subdev *sd,
+				  struct v4l2_subdev_state *state, u32 pad,
+				  u64 streams_mask)
 {
+	struct imx585 *imx585 = to_imx585(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
 	int ret;
-
-	dev_info(imx585->clientdev, "Stop Streaming\n");
 
 	/* set stream off register */
 	ret = cci_write(imx585->regmap, IMX585_REG_MODE_SELECT, IMX585_MODE_STANDBY, NULL);
 	if (ret)
-		dev_err(imx585->clientdev, "%s failed to stop stream\n", __func__);
-}
+		dev_err(&client->dev, "%s failed to set stream\n", __func__);
 
-static int imx585_set_stream(struct v4l2_subdev *sd, int enable)
-{
-	struct imx585 *imx585 = to_imx585(sd);
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	int ret = 0;
+	__v4l2_ctrl_grab(imx585->vflip, false);
+	__v4l2_ctrl_grab(imx585->hflip, false);
+	__v4l2_ctrl_grab(imx585->hdr_mode, false);
 
-	mutex_lock(&imx585->mutex);
-	if (imx585->streaming == enable) {
-		mutex_unlock(&imx585->mutex);
-		return 0;
-	}
-
-	if (enable) {
-		ret = pm_runtime_get_sync(&client->dev);
-		if (ret < 0) {
-			pm_runtime_put_noidle(&client->dev);
-			goto err_unlock;
-		}
-
-		/*
-		 * Apply default & customized values
-		 * and then start streaming.
-		 */
-		ret = imx585_start_streaming(imx585);
-		if (ret)
-			goto err_rpm_put;
-	} else {
-		imx585_stop_streaming(imx585);
-		pm_runtime_put(&client->dev);
-	}
-
-	imx585->streaming = enable;
-
-	/* vflip/hflip and hdr mode cannot change during streaming */
-	__v4l2_ctrl_grab(imx585->vflip, enable);
-	__v4l2_ctrl_grab(imx585->hflip, enable);
-	__v4l2_ctrl_grab(imx585->hdr_mode, enable);
-
-	mutex_unlock(&imx585->mutex);
-
-	return ret;
-
-err_rpm_put:
-	pm_runtime_put(&client->dev);
-err_unlock:
-	mutex_unlock(&imx585->mutex);
+	pm_runtime_mark_last_busy(&client->dev);
+	pm_runtime_put_autosuspend(&client->dev);
 
 	return ret;
 }
@@ -1885,43 +1767,7 @@ static int imx585_power_off(struct device *dev)
 	regulator_bulk_disable(imx585_NUM_SUPPLIES, imx585->supplies);
 	clk_disable_unprepare(imx585->xclk);
 
-	/* Force reprogramming of the common registers when powered up again. */
-	imx585->common_regs_written = false;
-
 	return 0;
-}
-
-static int __maybe_unused imx585_suspend(struct device *dev)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct v4l2_subdev *sd = i2c_get_clientdata(client);
-	struct imx585 *imx585 = to_imx585(sd);
-
-	if (imx585->streaming)
-		imx585_stop_streaming(imx585);
-
-	return 0;
-}
-
-static int __maybe_unused imx585_resume(struct device *dev)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct v4l2_subdev *sd = i2c_get_clientdata(client);
-	struct imx585 *imx585 = to_imx585(sd);
-	int ret;
-
-	if (imx585->streaming) {
-		ret = imx585_start_streaming(imx585);
-		if (ret)
-			goto error;
-	}
-
-	return 0;
-
-error:
-	imx585_stop_streaming(imx585);
-	imx585->streaming = 0;
-	return ret;
 }
 
 static int imx585_get_selection(struct v4l2_subdev *sd,
@@ -1930,12 +1776,7 @@ static int imx585_get_selection(struct v4l2_subdev *sd,
 {
 	switch (sel->target) {
 	case V4L2_SEL_TGT_CROP: {
-		struct imx585 *imx585 = to_imx585(sd);
-
-		mutex_lock(&imx585->mutex);
-		sel->r = *__imx585_get_pad_crop(imx585, sd_state, sel->pad, sel->which);
-		mutex_unlock(&imx585->mutex);
-
+		sel->r = *v4l2_subdev_state_get_crop(sd_state, 0);
 		return 0;
 	}
 
@@ -1958,32 +1799,53 @@ static int imx585_get_selection(struct v4l2_subdev *sd,
 	return -EINVAL;
 }
 
-static const struct v4l2_subdev_core_ops imx585_core_ops = {
-	.subscribe_event = v4l2_ctrl_subdev_subscribe_event,
-	.unsubscribe_event = v4l2_event_subdev_unsubscribe,
-};
+static int imx585_init_state(struct v4l2_subdev *sd,
+			     struct v4l2_subdev_state *state)
+{
+	struct v4l2_subdev_format fmt = {
+		.which = V4L2_SUBDEV_FORMAT_TRY,
+		.pad = 0,
+		.format = {
+			.code = MEDIA_BUS_FMT_SRGGB12_1X12,
+			.width = supported_modes[0].width,
+			.height = supported_modes[0].height,
+		},
+	};
+
+	imx585_set_pad_format(sd, state, &fmt);
+
+	return 0;
+}
+
 
 static const struct v4l2_subdev_video_ops imx585_video_ops = {
-	.s_stream = imx585_set_stream,
+	.s_stream = v4l2_subdev_s_stream_helper,
 };
 
 static const struct v4l2_subdev_pad_ops imx585_pad_ops = {
 	.enum_mbus_code = imx585_enum_mbus_code,
-	.get_fmt = imx585_get_pad_format,
+	.get_fmt = v4l2_subdev_get_fmt,
 	.set_fmt = imx585_set_pad_format,
 	.get_selection = imx585_get_selection,
 	.enum_frame_size = imx585_enum_frame_size,
+	.enable_streams = imx585_enable_streams,
+	.disable_streams = imx585_disable_streams,
 };
 
 static const struct v4l2_subdev_ops imx585_subdev_ops = {
-	.core = &imx585_core_ops,
 	.video = &imx585_video_ops,
 	.pad = &imx585_pad_ops,
 };
 
 static const struct v4l2_subdev_internal_ops imx585_internal_ops = {
-	.open = imx585_open,
+	.init_state = imx585_init_state,
 };
+
+// imx585_open -> imx585_init_state
+// imx585_enable_streams
+// imx585_disable_streams
+
+// imx585_set_stream --> ??
 
 static int imx585_check_hwcfg(struct device *dev, struct imx585 *imx585)
 {
@@ -2182,24 +2044,16 @@ static int imx585_probe(struct i2c_client *client)
 		dev_info(dev, "No IR-cut controller\n");
 	}
 
-	/* Initialize default format */
-	imx585_set_default_format(imx585);
-
-	/* Enable runtime PM and turn off the device */
-	pm_runtime_set_active(dev);
-	pm_runtime_enable(dev);
-	pm_runtime_idle(dev);
-
 	/* This needs the pm runtime to be registered. */
 	ret = imx585_init_controls(imx585);
 	if (ret)
 		goto error_pm_runtime;
 
 	/* Initialize subdev */
-	imx585->sd.internal_ops = &imx585_internal_ops;
-	imx585->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE |
-				V4L2_SUBDEV_FL_HAS_EVENTS;
+	
+	imx585->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	imx585->sd.entity.function = MEDIA_ENT_F_CAM_SENSOR;
+	imx585->sd.internal_ops = &imx585_internal_ops;
 
 	/* Initialize source pads */
 	imx585->pad.flags = MEDIA_PAD_FL_SOURCE;
@@ -2210,11 +2064,23 @@ static int imx585_probe(struct i2c_client *client)
 		goto error_handler_free;
 	}
 
+	imx585->sd.state_lock = imx585->ctrl_handler.lock;
+	ret = v4l2_subdev_init_finalize(&imx585->sd);
+	if (ret < 0) {
+		dev_err_probe(dev, ret, "subdev init error\n");
+		goto error_media_entity;
+	}
+
 	ret = v4l2_async_register_subdev_sensor(&imx585->sd);
 	if (ret < 0) {
 		dev_err(dev, "failed to register sensor sub-device: %d\n", ret);
 		goto error_media_entity;
 	}
+
+	/* Enable runtime PM and turn off the device */
+	pm_runtime_set_active(dev);
+	pm_runtime_enable(dev);
+	pm_runtime_idle(dev);
 
 	return 0;
 
@@ -2240,6 +2106,7 @@ static void imx585_remove(struct i2c_client *client)
 	struct imx585 *imx585 = to_imx585(sd);
 
 	v4l2_async_unregister_subdev(sd);
+	v4l2_subdev_cleanup(sd);
 	media_entity_cleanup(&sd->entity);
 	imx585_free_controls(imx585);
 
@@ -2257,7 +2124,6 @@ static const struct of_device_id imx585_dt_ids[] = {
 MODULE_DEVICE_TABLE(of, imx585_dt_ids);
 
 static const struct dev_pm_ops imx585_pm_ops = {
-	SET_SYSTEM_SLEEP_PM_OPS(imx585_suspend, imx585_resume)
 	SET_RUNTIME_PM_OPS(imx585_power_off, imx585_power_on, NULL)
 };
 
