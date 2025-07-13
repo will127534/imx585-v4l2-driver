@@ -919,14 +919,34 @@ static void imx585_update_hmax(struct imx585 *imx585)
 	}
 }
 
-static void imx585_set_framing_limits(struct imx585 *imx585, const struct imx585_mode *mode)
+static void imx585_set_framing_limits(struct imx585 *imx585)
 {
 	u64 default_hblank, max_hblank;
 	u64 pixel_rate;
+	const struct imx585_mode *mode;
+	struct v4l2_mbus_framefmt *fmt;
+	const struct imx585_mode *mode_list;
+	struct v4l2_subdev_state *state;
+	unsigned int num_modes;
+
+	state = v4l2_subdev_get_locked_active_state(&imx585->sd);
+	if (state == NULL) {
+		return;
+	}
+	fmt = v4l2_subdev_state_get_format(state, 0);
+	if (!fmt->code) {
+		return;
+	}
+	get_mode_table(imx585, fmt->code, &mode_list, &num_modes);
+	if (!num_modes) {                       /* shouldn’t happen */
+		return;
+	}
+	mode = v4l2_find_nearest_size(mode_list, num_modes, width, height,
+				      fmt->width, fmt->height);
 
 	imx585_update_hmax(imx585);
 
-	dev_info(imx585->clientdev, "mode: %d x %d\n", mode->width, mode->height);
+	dev_info(imx585->clientdev, "imx585_set_framing_limits mode: %d x %d\n", mode->width, mode->height);
 
 	imx585->vmax = mode->default_vmax;
 	imx585->hmax = mode->default_hmax;
@@ -976,7 +996,6 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 
 	state = v4l2_subdev_get_locked_active_state(&imx585->sd);
 	fmt = v4l2_subdev_state_get_format(state, 0);
-
 	get_mode_table(imx585, fmt->code, &mode_list, &num_modes);
 	mode = v4l2_find_nearest_size(mode_list, num_modes, width, height,
 				      fmt->width, fmt->height);
@@ -1008,7 +1027,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 							      width, height,
 							      fmt->width,
 							      fmt->height);
-			imx585_set_framing_limits(imx585, mode);
+			imx585_set_framing_limits(imx585);
 		}
 		break;
 	}
@@ -1333,7 +1352,6 @@ static int imx585_init_controls(struct imx585 *imx585)
 {
 	struct v4l2_ctrl_handler *ctrl_hdlr;
 	struct v4l2_fwnode_device_properties props;
-	const struct imx585_mode *mode = &supported_modes[0];
 	int ret;
 
 	ctrl_hdlr = &imx585->ctrl_handler;
@@ -1440,11 +1458,6 @@ static int imx585_init_controls(struct imx585 *imx585)
 
 	imx585->sd.ctrl_handler = ctrl_hdlr;
 
-	/* Setup exposure and frame/line length limits. */
-	mutex_lock(imx585->ctrl_handler.lock);
-	imx585_set_framing_limits(imx585, mode);
-	mutex_unlock(imx585->ctrl_handler.lock);
-
 	return 0;
 
 error:
@@ -1549,7 +1562,7 @@ static int imx585_set_pad_format(struct v4l2_subdev *sd,
 	format = v4l2_subdev_state_get_format(sd_state, 0);
 
 	if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE)
-		imx585_set_framing_limits(imx585, mode);
+		imx585_set_framing_limits(imx585);
 
 	*format = fmt->format;
 
@@ -1562,12 +1575,13 @@ static int imx585_enable_streams(struct v4l2_subdev *sd,
 				 u64 streams_mask)
 {
 	struct imx585 *imx585 = to_imx585(sd);
-	struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
 	int ret;
 
-	ret = pm_runtime_resume_and_get(&client->dev);
-	if (ret < 0)
-		goto err_rpm_put;
+	ret = pm_runtime_get_sync(imx585->clientdev);
+	if (ret < 0) {
+		pm_runtime_put_noidle(imx585->clientdev);
+		return ret;
+	}
 
 	ret = cci_multi_reg_write(imx585->regmap, common_regs,
 				  ARRAY_SIZE(common_regs), NULL);
@@ -1694,8 +1708,8 @@ static int imx585_enable_streams(struct v4l2_subdev *sd,
 	return 0;
 
 err_rpm_put:
-	pm_runtime_mark_last_busy(&client->dev);
-	pm_runtime_put_autosuspend(&client->dev);
+	pm_runtime_mark_last_busy(imx585->clientdev);
+	pm_runtime_put_autosuspend(imx585->clientdev);
 	return ret;
 }
 
@@ -1705,20 +1719,19 @@ static int imx585_disable_streams(struct v4l2_subdev *sd,
 				  u64 streams_mask)
 {
 	struct imx585 *imx585 = to_imx585(sd);
-	struct i2c_client *client = v4l2_get_subdevdata(&imx585->sd);
 	int ret;
 
 	/* set stream off register */
 	ret = cci_write(imx585->regmap, IMX585_REG_MODE_SELECT, IMX585_MODE_STANDBY, NULL);
 	if (ret)
-		dev_err(&client->dev, "%s failed to set stream\n", __func__);
+		dev_err(imx585->clientdev, "%s failed to set stream\n", __func__);
 
 	__v4l2_ctrl_grab(imx585->vflip, false);
 	__v4l2_ctrl_grab(imx585->hflip, false);
 	__v4l2_ctrl_grab(imx585->hdr_mode, false);
 
-	pm_runtime_mark_last_busy(&client->dev);
-	pm_runtime_put_autosuspend(&client->dev);
+	pm_runtime_mark_last_busy(imx585->clientdev);
+	pm_runtime_put_autosuspend(imx585->clientdev);
 
 	return ret;
 }
@@ -1726,11 +1739,10 @@ static int imx585_disable_streams(struct v4l2_subdev *sd,
 /* Power/clock management functions */
 static int imx585_power_on(struct device *dev)
 {
-	struct i2c_client *client = to_i2c_client(dev);
-	struct v4l2_subdev *sd = i2c_get_clientdata(client);
+	struct v4l2_subdev *sd = dev_get_drvdata(dev);
 	struct imx585 *imx585 = to_imx585(sd);
 	int ret;
-
+	dev_info(imx585->clientdev, "imx585_power_on\n");
 	ret = regulator_bulk_enable(imx585_NUM_SUPPLIES,
 				    imx585->supplies);
 	if (ret) {
@@ -1759,8 +1771,7 @@ reg_off:
 
 static int imx585_power_off(struct device *dev)
 {
-	struct i2c_client *client = to_i2c_client(dev);
-	struct v4l2_subdev *sd = i2c_get_clientdata(client);
+	struct v4l2_subdev *sd = dev_get_drvdata(dev);
 	struct imx585 *imx585 = to_imx585(sd);
 
 	gpiod_set_value_cansleep(imx585->reset_gpio, 0);
@@ -1802,6 +1813,8 @@ static int imx585_get_selection(struct v4l2_subdev *sd,
 static int imx585_init_state(struct v4l2_subdev *sd,
 			     struct v4l2_subdev_state *state)
 {
+	struct imx585 *imx585 = to_imx585(sd);
+	struct v4l2_rect *crop;
 	struct v4l2_subdev_format fmt = {
 		.which = V4L2_SUBDEV_FORMAT_TRY,
 		.pad = 0,
@@ -1813,6 +1826,10 @@ static int imx585_init_state(struct v4l2_subdev *sd,
 	};
 
 	imx585_set_pad_format(sd, state, &fmt);
+
+	/* Initialize crop rectangle to mode default */
+	crop = v4l2_subdev_state_get_crop(state, 0);
+	*crop = supported_modes[0].crop;
 
 	return 0;
 }
@@ -1832,20 +1849,14 @@ static const struct v4l2_subdev_pad_ops imx585_pad_ops = {
 	.disable_streams = imx585_disable_streams,
 };
 
-static const struct v4l2_subdev_ops imx585_subdev_ops = {
-	.video = &imx585_video_ops,
-	.pad = &imx585_pad_ops,
-};
-
 static const struct v4l2_subdev_internal_ops imx585_internal_ops = {
 	.init_state = imx585_init_state,
 };
 
-// imx585_open -> imx585_init_state
-// imx585_enable_streams
-// imx585_disable_streams
-
-// imx585_set_stream --> ??
+static const struct v4l2_subdev_ops imx585_subdev_ops = {
+	.video = &imx585_video_ops,
+	.pad = &imx585_pad_ops,
+};
 
 static int imx585_check_hwcfg(struct device *dev, struct imx585 *imx585)
 {
@@ -2044,13 +2055,19 @@ static int imx585_probe(struct i2c_client *client)
 		dev_info(dev, "No IR-cut controller\n");
 	}
 
+	pm_runtime_set_active(dev);
+	pm_runtime_get_noresume(dev);
+	pm_runtime_enable(dev);
+	pm_runtime_set_autosuspend_delay(dev, 1000);
+	pm_runtime_use_autosuspend(dev);
+
+
 	/* This needs the pm runtime to be registered. */
 	ret = imx585_init_controls(imx585);
 	if (ret)
 		goto error_pm_runtime;
 
 	/* Initialize subdev */
-	
 	imx585->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	imx585->sd.entity.function = MEDIA_ENT_F_CAM_SENSOR;
 	imx585->sd.internal_ops = &imx585_internal_ops;
@@ -2071,16 +2088,23 @@ static int imx585_probe(struct i2c_client *client)
 		goto error_media_entity;
 	}
 
+
+
 	ret = v4l2_async_register_subdev_sensor(&imx585->sd);
 	if (ret < 0) {
 		dev_err(dev, "failed to register sensor sub-device: %d\n", ret);
 		goto error_media_entity;
 	}
 
-	/* Enable runtime PM and turn off the device */
-	pm_runtime_set_active(dev);
-	pm_runtime_enable(dev);
-	pm_runtime_idle(dev);
+	/* Setup exposure and frame/line length limits. */
+	imx585_set_framing_limits(imx585);
+
+	/*
+	 * Decrease the PM usage count. The device will get suspended after the
+	 * autosuspend delay, turning the power off.
+	 */
+	pm_runtime_mark_last_busy(dev);
+	pm_runtime_put_autosuspend(dev);
 
 	return 0;
 
@@ -2091,11 +2115,11 @@ error_handler_free:
 	imx585_free_controls(imx585);
 
 error_pm_runtime:
-	pm_runtime_disable(&client->dev);
-	pm_runtime_set_suspended(&client->dev);
+	pm_runtime_disable(dev);
+	pm_runtime_set_suspended(dev);
 
 error_power_off:
-	imx585_power_off(&client->dev);
+	imx585_power_off(dev);
 
 	return ret;
 }
@@ -2110,11 +2134,14 @@ static void imx585_remove(struct i2c_client *client)
 	media_entity_cleanup(&sd->entity);
 	imx585_free_controls(imx585);
 
-	pm_runtime_disable(&client->dev);
-	if (!pm_runtime_status_suspended(&client->dev))
-		imx585_power_off(&client->dev);
-	pm_runtime_set_suspended(&client->dev);
+	pm_runtime_disable(imx585->clientdev);
+	if (!pm_runtime_status_suspended(imx585->clientdev))
+		imx585_power_off(imx585->clientdev);
+	pm_runtime_set_suspended(imx585->clientdev);
 }
+
+static DEFINE_RUNTIME_DEV_PM_OPS(imx585_pm_ops, imx585_power_off,
+				 imx585_power_on, NULL);
 
 static const struct of_device_id imx585_dt_ids[] = {
 	{ .compatible = "sony,imx585"},
@@ -2123,15 +2150,11 @@ static const struct of_device_id imx585_dt_ids[] = {
 
 MODULE_DEVICE_TABLE(of, imx585_dt_ids);
 
-static const struct dev_pm_ops imx585_pm_ops = {
-	SET_RUNTIME_PM_OPS(imx585_power_off, imx585_power_on, NULL)
-};
-
 static struct i2c_driver imx585_i2c_driver = {
 	.driver = {
 		.name = "imx585",
+		.pm = pm_ptr(&imx585_pm_ops),
 		.of_match_table = imx585_dt_ids,
-		.pm = &imx585_pm_ops,
 	},
 	.probe = imx585_probe,
 	.remove = imx585_remove,
