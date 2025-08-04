@@ -738,9 +738,6 @@ struct imx585 {
 	struct v4l2_ctrl   *ircut_ctrl;
 	struct i2c_client  *ircut_client;
 
-	/* Current mode */
-	const struct imx585_mode *mode;
-
 	/* HCG enabled flag*/
 	bool hcg;
 
@@ -767,12 +764,6 @@ struct imx585 {
 	/* Tracking sensor VMAX/HMAX value */
 	u16 hmax;
 	u32 vmax;
-
-	/*
-	 * Mutex for serialized access:
-	 * Protect sensor module set pad format and start/stop streaming safely.
-	 */
-	struct mutex mutex;
 
 	/* Streaming on/off */
 	bool streaming;
@@ -849,8 +840,6 @@ static int imx585_ircut_set(struct imx585 *imx585, int on)
 static u32 imx585_get_format_code(struct imx585 *imx585, u32 code)
 {
 	unsigned int i;
-
-	lockdep_assert_held(&imx585->mutex);
 
 	if (imx585->mono) {
 		for (i = 0; i < ARRAY_SIZE(mono_codes); i++)
@@ -1469,7 +1458,6 @@ error:
 static void imx585_free_controls(struct imx585 *imx585)
 {
 	v4l2_ctrl_handler_free(imx585->sd.ctrl_handler);
-	mutex_destroy(&imx585->mutex);
 }
 
 static int imx585_enum_mbus_code(struct v4l2_subdev *sd,
@@ -1561,8 +1549,10 @@ static int imx585_set_pad_format(struct v4l2_subdev *sd,
 
 	format = v4l2_subdev_state_get_format(sd_state, 0);
 
-	if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE)
+	if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE) {
 		imx585_set_framing_limits(imx585);
+		imx585->fmt_code = fmt->format.code;
+	}
 
 	*format = fmt->format;
 
@@ -1575,6 +1565,10 @@ static int imx585_enable_streams(struct v4l2_subdev *sd,
 				 u64 streams_mask)
 {
 	struct imx585 *imx585 = to_imx585(sd);
+	const struct imx585_mode *mode_list, *mode;
+	struct v4l2_subdev_state *st;
+	struct v4l2_mbus_framefmt *fmt;
+	unsigned int n_modes;
 	int ret;
 
 	ret = pm_runtime_get_sync(imx585->clientdev);
@@ -1627,9 +1621,24 @@ static int imx585_enable_streams(struct v4l2_subdev *sd,
 	imx585->common_regs_written = true;
 	dev_info(imx585->clientdev, "common_regs_written\n");
 
-	/* Apply default values of current mode */
-	//reg_list = &supported_modes[0]->reg_list;
-	ret = cci_multi_reg_write(imx585->regmap, supported_modes[0].reg_list.regs, supported_modes[0].reg_list.num_of_regs, NULL);
+	/* ------------------------------------------------------------------
+	 * Work out *which* mode we’re about to run and push its registers.
+	 * ----------------------------------------------------------------- */
+	st   = v4l2_subdev_get_locked_active_state(&imx585->sd);
+	fmt  = v4l2_subdev_state_get_format(st, 0);
+
+	get_mode_table(imx585, fmt->code, &mode_list, &n_modes);
+	mode = v4l2_find_nearest_size(mode_list, n_modes,
+				      width, height,
+				      fmt->width, fmt->height);
+
+	imx585->fmt_code = fmt->code;          /* used later for HDR switch */
+
+	ret = cci_multi_reg_write(imx585->regmap,
+				  mode->reg_list.regs,
+				  mode->reg_list.num_of_regs,
+				  NULL);
+
 	if (ret) {
 		dev_err(imx585->clientdev, "%s failed to set mode\n", __func__);
 		goto err_rpm_put;
@@ -1813,7 +1822,6 @@ static int imx585_get_selection(struct v4l2_subdev *sd,
 static int imx585_init_state(struct v4l2_subdev *sd,
 			     struct v4l2_subdev_state *state)
 {
-	struct imx585 *imx585 = to_imx585(sd);
 	struct v4l2_rect *crop;
 	struct v4l2_subdev_format fmt = {
 		.which = V4L2_SUBDEV_FORMAT_TRY,
