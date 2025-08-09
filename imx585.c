@@ -695,8 +695,6 @@ struct imx585 {
 	struct device *clientdev;
 	struct regmap *regmap;
 
-	unsigned int fmt_code;
-
 	struct clk *xclk;
 	u32 xclk_freq;
 
@@ -908,30 +906,12 @@ static void imx585_update_hmax(struct imx585 *imx585)
 	}
 }
 
-static void imx585_set_framing_limits(struct imx585 *imx585)
+static void imx585_set_framing_limits(struct imx585 *imx585, const struct imx585_mode *mode)
 {
 	u64 default_hblank, max_hblank;
 	u64 pixel_rate;
-	const struct imx585_mode *mode;
-	struct v4l2_mbus_framefmt *fmt;
-	const struct imx585_mode *mode_list;
-	struct v4l2_subdev_state *state;
 	unsigned int num_modes;
 
-	state = v4l2_subdev_get_locked_active_state(&imx585->sd);
-	if (state == NULL) {
-		return;
-	}
-	fmt = v4l2_subdev_state_get_format(state, 0);
-	if (!fmt->code) {
-		return;
-	}
-	get_mode_table(imx585, fmt->code, &mode_list, &num_modes);
-	if (!num_modes) {                       /* shouldn’t happen */
-		return;
-	}
-	mode = v4l2_find_nearest_size(mode_list, num_modes, width, height,
-				      fmt->width, fmt->height);
 
 	imx585_update_hmax(imx585);
 
@@ -941,10 +921,11 @@ static void imx585_set_framing_limits(struct imx585 *imx585)
 	imx585->hmax = mode->default_hmax;
 
 	pixel_rate = (u64)mode->width * IMX585_PIXEL_RATE;
+	dev_info(imx585->clientdev, "PixelRate: %lld\n",pixel_rate);
 	do_div(pixel_rate, mode->min_hmax);
+	dev_info(imx585->clientdev, "PixelRate: %lld\n",pixel_rate);
 	__v4l2_ctrl_modify_range(imx585->pixel_rate, pixel_rate, pixel_rate, 1, pixel_rate);
 
-	//int default_hblank = mode->default_hmax*IMX585_PIXEL_RATE/72000000-IMX585_NATIVE_WIDTH;
 	default_hblank = mode->default_hmax * pixel_rate;
 	do_div(default_hblank, IMX585_PIXEL_RATE);
 	default_hblank = default_hblank - mode->width;
@@ -980,8 +961,8 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 	unsigned int code, num_modes;
 
 	dev_info(imx585->clientdev,
-		 "ctrl(id:0x%x,val:0x%x)\n",
-		 ctrl->id, ctrl->val);
+		 "ctrl(id:0x%x,name:%s,val:0x%x)\n",
+		 ctrl->id, ctrl->name, ctrl->val);
 
 	state = v4l2_subdev_get_locked_active_state(&imx585->sd);
 	fmt = v4l2_subdev_state_get_format(state, 0);
@@ -1016,7 +997,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 							      width, height,
 							      fmt->width,
 							      fmt->height);
-			imx585_set_framing_limits(imx585);
+			imx585_set_framing_limits(imx585, mode);
 		}
 		break;
 	}
@@ -1550,8 +1531,8 @@ static int imx585_set_pad_format(struct v4l2_subdev *sd,
 	format = v4l2_subdev_state_get_format(sd_state, 0);
 
 	if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE) {
-		imx585_set_framing_limits(imx585);
-		imx585->fmt_code = fmt->format.code;
+		dev_info(imx585->clientdev, "imx585_set_pad_format:\n");
+		imx585_set_framing_limits(imx585, mode);
 	}
 
 	*format = fmt->format;
@@ -1632,8 +1613,6 @@ static int imx585_enable_streams(struct v4l2_subdev *sd,
 				      width, height,
 				      fmt->width, fmt->height);
 
-	imx585->fmt_code = fmt->code;          /* used later for HDR switch */
-
 	ret = cci_multi_reg_write(imx585->regmap,
 				  mode->reg_list.regs,
 				  mode->reg_list.num_of_regs,
@@ -1652,7 +1631,7 @@ static int imx585_enable_streams(struct v4l2_subdev *sd,
 			goto err_rpm_put;
 		}
 		//16bit mode is linear, 12bit mode we need to enable gradation compression
-		switch (imx585->fmt_code) {
+		switch (fmt->code) {
 		/* 16-bit */
 		case MEDIA_BUS_FMT_SRGGB16_1X16:
 		case MEDIA_BUS_FMT_SGRBG16_1X16:
@@ -2103,9 +2082,6 @@ static int imx585_probe(struct i2c_client *client)
 		dev_err(dev, "failed to register sensor sub-device: %d\n", ret);
 		goto error_media_entity;
 	}
-
-	/* Setup exposure and frame/line length limits. */
-	imx585_set_framing_limits(imx585);
 
 	/*
 	 * Decrease the PM usage count. The device will get suspended after the
