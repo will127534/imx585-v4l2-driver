@@ -2,9 +2,7 @@
 /*
  * A V4L2 driver for Sony IMX585 cameras.
  *
- * Based on the Sony IMX477 driver
- * Copyright (C) 2019-2020 Raspberry Pi (Trading) Ltd
- * Maintained by: Will Whang <will@willwhang.com>, Tetsuya Nomura
+ * Maintained by: Will Whang <will@willwhang.com>
  */
 
 #include <linux/clk.h>
@@ -206,7 +204,7 @@ static const char * const hdr_gain_adder_menu[] = {
 	"+0dB", "+6dB", "+12dB", "+18dB", "+24dB", "+29.1dB",
 };
 
-/* Keep the order as in datasheet */
+/* Keep the order as in datasheet, there are two 50/50 for some reasons */
 static const char * const hdr_data_blender_menu[] = {
 	"HG 1/2, LG 1/2",
 	"HG 3/4, LG 1/4",
@@ -426,7 +424,26 @@ static const struct cci_reg_sequence mode_1080_regs_12bit[] = {
 
 /* --------------------------------------------------------------------------
  * Mode list
- * -------------------------------------------------------------------------- */
+ * -------------------------------------------------------------------------- 
+ * Default:
+ *   12Bit - FHD, 4K
+ * ClearHDR Enabled:
+ *   12bit + Gradation compression
+ *   16bit - FHD, 4K
+ *
+ * Gradation compression is available on 12bit
+ * With Default option, only 12bit mode is exposed
+ * With ClearHDR enabled via parameters,
+ *   12bit will be with Gradation compression enabled
+ *   16bit mode exposed
+ *
+ * Technically, because the sensor is actually binning
+ * in digital domain, its readout speed is the same
+ * between 4K and FHD. However, through testing it is
+ * possible to "overclock" the FHD mode, thus leaving the
+ * hmax_div option for those who want to try.
+ * Also, note that FHD and 4K mode shared the same VMAX.
+ */
 
 static struct imx585_mode supported_modes[] = {
 	{
@@ -549,6 +566,19 @@ struct imx585 {
 	bool hcg;
 	bool mono;
 	bool clear_hdr;
+
+	/* 
+	 * Sync Mode
+	 * 0 = Internal Sync Leader Mode
+	 * 1 = External Sync Leader Mode
+	 * 2 = Follower Mode
+	 * The datasheet wording is very confusing but basically:
+	 * Leader Mode = Sensor using internal clock to drive the sensor
+	 * But with external sync mode you can send a XVS input so the sensor
+	 * will try to align with it.
+	 * For Follower mode it is purely driven by external clock.
+	 * In this case you need to drive both XVS and XHS.
+	 */
 	u8   sync_mode;
 
 	u16  hmax;
@@ -680,7 +710,7 @@ static void imx585_set_framing_limits(struct imx585 *imx585,
 	imx585->vmax = mode->min_vmax;
 	imx585->hmax = mode->min_hmax;
 
-	/* Pixel rate proxy: width * line_clk / hmax */
+	/* Pixel rate proxy: width * clock / min_hmax */
 	pixel_rate = (u64)mode->width * IMX585_PIXEL_RATE;
 	do_div(pixel_rate, mode->min_hmax);
 	__v4l2_ctrl_modify_range(imx585->pixel_rate, pixel_rate, pixel_rate, 1,
@@ -773,7 +803,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 
 	switch (ctrl->id) {
 	case V4L2_CID_EXPOSURE: {
-		u32 shr = (imx585->vmax - ctrl->val) & ~1U;
+		u32 shr = (imx585->vmax - ctrl->val) & ~1U; /* SHR always a multiple of 2 */
 
 		dev_dbg(imx585->clientdev, "EXPOSURE=%u -> SHR=%u (VMAX=%u HMAX=%u)\n",
 			ctrl->val, shr, imx585->vmax, imx585->hmax);
@@ -793,7 +823,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		}
 		break;
 	case V4L2_CID_ANALOGUE_GAIN:
-		dev_info(imx585->clientdev, "ANALOG_GAIN=%u (%s)\n",
+		dev_dbg(imx585->clientdev, "ANALOG_GAIN=%u (%s)\n",
 			ctrl->val, imx585->hcg ? "HCG" : "LCG");
 
 		ret = cci_write(imx585->regmap, IMX585_REG_ANALOG_GAIN, ctrl->val, NULL);
@@ -1050,6 +1080,7 @@ static int imx585_init_controls(struct imx585 *imx585)
 	v4l2_ctrl_activate(imx585->gdc_exp_ctrl_l,   imx585->clear_hdr);
 	v4l2_ctrl_activate(imx585->gdc_exp_ctrl_h,   imx585->clear_hdr);
 	v4l2_ctrl_activate(imx585->hdr_gain_ctrl,    imx585->clear_hdr);
+	/* HCG is disabled if ClearHDR is enabled */
 	v4l2_ctrl_activate(imx585->hcg_ctrl,        !imx585->clear_hdr);
 
 	if (hdl->error) {
@@ -1066,6 +1097,7 @@ static int imx585_init_controls(struct imx585 *imx585)
 	if (ret)
 		goto err_free;
 
+	/* Set the default value for ClearHDR thresholds */
 	memcpy(imx585->datasel_th_ctrl->p_cur.p, hdr_thresh_def, sizeof(hdr_thresh_def));
 	memcpy(imx585->datasel_th_ctrl->p_new.p, hdr_thresh_def, sizeof(hdr_thresh_def));
 	memcpy(imx585->gdc_th_ctrl->p_cur.p, grad_thresh_def, sizeof(grad_thresh_def));
