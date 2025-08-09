@@ -70,8 +70,6 @@
 				vdig-supply = <&cam_dummy_reg>;	/* 1.1v */
 				vddl-supply = <&cam_dummy_reg>;	/* 1.8v */
 
-				ircut-controller = <&ircut_node>;
-
 				port {
 					cam_endpoint: endpoint {
 						remote-endpoint = <&csi_ep>;
@@ -81,13 +79,6 @@
 					};
 				};
 			};
-
-			/* IR-cut controller – disabled by default */
-        	ircut_node: ircut@34 {
-                compatible = "mcu-ircut";
-                reg        = <0x34>;
-                status     = "disabled";
-            };
 
 		};
 	};
@@ -141,10 +132,7 @@
 		       <&cam_node>, "clocks:0=",<&cam0_clk>,
 		       <&reg_alwayson_frag>, "target:0=",<&cam0_reg>,
 		       <&cam_node>, "vana-supply:0=",<&cam0_reg>;
-		mono = <&cam_node>,"mono-mode:0=1";
+		mono = <&cam_node>, "compatible=sony,imx585-mono";
 		link-frequency = <&cam_endpoint>,"link-frequencies#0";
-        ircut        = <&ircut_node>,"status=okay",
-                       <&cam_node>,"ircut-mode:0=1";
-        ircut_addr   = <&ircut_node>,"reg:0";
 	};
 };
