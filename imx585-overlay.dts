@@ -132,7 +132,6 @@
 		       <&cam_node>, "clocks:0=",<&cam0_clk>,
 		       <&reg_alwayson_frag>, "target:0=",<&cam0_reg>,
 		       <&cam_node>, "vana-supply:0=",<&cam0_reg>;
-		mono = <&cam_node>, "compatible=sony,imx585-mono";
 		link-frequency = <&cam_endpoint>,"link-frequencies#0";
 	};
 };

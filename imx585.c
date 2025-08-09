@@ -81,18 +81,18 @@
 
 /* VMAX internal VBLANK */
 #define IMX585_REG_VMAX                 CCI_REG24_LE(0x3028)
-#define IMX585_VMAX_MAX                 0xFFFFF
+#define IMX585_VMAX_MAX                 0xfffff
 #define IMX585_VMAX_DEFAULT             2250
 
 /* HMAX internal HBLANK */
 #define IMX585_REG_HMAX                 CCI_REG16_LE(0x302c)
-#define IMX585_HMAX_MAX                 0xFFFF
+#define IMX585_HMAX_MAX                 0xffff
 
 /* SHR internal (coarse exposure) */
 #define IMX585_REG_SHR                  CCI_REG24_LE(0x3050)
 #define IMX585_SHR_MIN                  8
 #define IMX585_SHR_MIN_HDR              10
-#define IMX585_SHR_MAX                  0xFFFFF
+#define IMX585_SHR_MAX                  0xfffff
 
 /* Exposure control (lines) */
 #define IMX585_EXPOSURE_MIN             2
@@ -261,167 +261,167 @@ static const struct cci_reg_sequence common_regs[] = {
 	{ CCI_REG8(0x3002), 0x01 },
 	{ CCI_REG8(0x3069), 0x00 },
 	{ CCI_REG8(0x3074), 0x64 },
-	{ CCI_REG8(0x30D5), 0x04 }, /* DIG_CLP_VSTART */
+	{ CCI_REG8(0x30d5), 0x04 }, /* DIG_CLP_VSTART */
 	{ CCI_REG8(0x3030), 0x00 }, /* FDG_SEL0 LCG (HCG=0x01) */
-	{ CCI_REG8(0x30A6), 0x00 }, /* XVS_DRV [1:0] Hi-Z */
+	{ CCI_REG8(0x30a6), 0x00 }, /* XVS_DRV [1:0] Hi-Z */
 	{ CCI_REG8(0x3081), 0x00 }, /* EXP_GAIN reset */
-	{ CCI_REG8(0x303A), 0x03 }, /* Disable embedded data */
+	{ CCI_REG8(0x303a), 0x03 }, /* Disable embedded data */
 
 	/* The remaining blocks are datasheet-recommended settings */
-	{ CCI_REG8(0x3460), 0x21 }, { CCI_REG8(0x3478), 0xA1 },
-	{ CCI_REG8(0x347C), 0x01 }, { CCI_REG8(0x3480), 0x01 },
-	{ CCI_REG8(0x3A4E), 0x14 }, { CCI_REG8(0x3A52), 0x14 },
-	{ CCI_REG8(0x3A56), 0x00 }, { CCI_REG8(0x3A5A), 0x00 },
-	{ CCI_REG8(0x3A5E), 0x00 }, { CCI_REG8(0x3A62), 0x00 },
-	{ CCI_REG8(0x3A6A), 0x20 }, { CCI_REG8(0x3A6C), 0x42 },
-	{ CCI_REG8(0x3A6E), 0xA0 }, { CCI_REG8(0x3B2C), 0x0C },
-	{ CCI_REG8(0x3B30), 0x1C }, { CCI_REG8(0x3B34), 0x0C },
-	{ CCI_REG8(0x3B38), 0x1C }, { CCI_REG8(0x3BA0), 0x0C },
-	{ CCI_REG8(0x3BA4), 0x1C }, { CCI_REG8(0x3BA8), 0x0C },
-	{ CCI_REG8(0x3BAC), 0x1C }, { CCI_REG8(0x3D3C), 0x11 },
-	{ CCI_REG8(0x3D46), 0x0B }, { CCI_REG8(0x3DE0), 0x3F },
-	{ CCI_REG8(0x3DE1), 0x08 }, { CCI_REG8(0x3E14), 0x87 },
-	{ CCI_REG8(0x3E16), 0x91 }, { CCI_REG8(0x3E18), 0x91 },
-	{ CCI_REG8(0x3E1A), 0x87 }, { CCI_REG8(0x3E1C), 0x78 },
-	{ CCI_REG8(0x3E1E), 0x50 }, { CCI_REG8(0x3E20), 0x50 },
-	{ CCI_REG8(0x3E22), 0x50 }, { CCI_REG8(0x3E24), 0x87 },
-	{ CCI_REG8(0x3E26), 0x91 }, { CCI_REG8(0x3E28), 0x91 },
-	{ CCI_REG8(0x3E2A), 0x87 }, { CCI_REG8(0x3E2C), 0x78 },
-	{ CCI_REG8(0x3E2E), 0x50 }, { CCI_REG8(0x3E30), 0x50 },
-	{ CCI_REG8(0x3E32), 0x50 }, { CCI_REG8(0x3E34), 0x87 },
-	{ CCI_REG8(0x3E36), 0x91 }, { CCI_REG8(0x3E38), 0x91 },
-	{ CCI_REG8(0x3E3A), 0x87 }, { CCI_REG8(0x3E3C), 0x78 },
-	{ CCI_REG8(0x3E3E), 0x50 }, { CCI_REG8(0x3E40), 0x50 },
-	{ CCI_REG8(0x3E42), 0x50 }, { CCI_REG8(0x4054), 0x64 },
-	{ CCI_REG8(0x4148), 0xFE }, { CCI_REG8(0x4149), 0x05 },
-	{ CCI_REG8(0x414A), 0xFF }, { CCI_REG8(0x414B), 0x05 },
-	{ CCI_REG8(0x420A), 0x03 }, { CCI_REG8(0x4231), 0x08 },
-	{ CCI_REG8(0x423D), 0x9C }, { CCI_REG8(0x4242), 0xB4 },
-	{ CCI_REG8(0x4246), 0xB4 }, { CCI_REG8(0x424E), 0xB4 },
-	{ CCI_REG8(0x425C), 0xB4 }, { CCI_REG8(0x425E), 0xB6 },
-	{ CCI_REG8(0x426C), 0xB4 }, { CCI_REG8(0x426E), 0xB6 },
-	{ CCI_REG8(0x428C), 0xB4 }, { CCI_REG8(0x428E), 0xB6 },
+	{ CCI_REG8(0x3460), 0x21 }, { CCI_REG8(0x3478), 0xa1 },
+	{ CCI_REG8(0x347c), 0x01 }, { CCI_REG8(0x3480), 0x01 },
+	{ CCI_REG8(0x3a4e), 0x14 }, { CCI_REG8(0x3a52), 0x14 },
+	{ CCI_REG8(0x3a56), 0x00 }, { CCI_REG8(0x3a5a), 0x00 },
+	{ CCI_REG8(0x3a5e), 0x00 }, { CCI_REG8(0x3a62), 0x00 },
+	{ CCI_REG8(0x3a6a), 0x20 }, { CCI_REG8(0x3a6c), 0x42 },
+	{ CCI_REG8(0x3a6e), 0xa0 }, { CCI_REG8(0x3b2c), 0x0c },
+	{ CCI_REG8(0x3b30), 0x1c }, { CCI_REG8(0x3b34), 0x0c },
+	{ CCI_REG8(0x3b38), 0x1c }, { CCI_REG8(0x3ba0), 0x0c },
+	{ CCI_REG8(0x3ba4), 0x1c }, { CCI_REG8(0x3ba8), 0x0c },
+	{ CCI_REG8(0x3bac), 0x1c }, { CCI_REG8(0x3d3c), 0x11 },
+	{ CCI_REG8(0x3d46), 0x0b }, { CCI_REG8(0x3de0), 0x3f },
+	{ CCI_REG8(0x3de1), 0x08 }, { CCI_REG8(0x3e14), 0x87 },
+	{ CCI_REG8(0x3e16), 0x91 }, { CCI_REG8(0x3e18), 0x91 },
+	{ CCI_REG8(0x3e1a), 0x87 }, { CCI_REG8(0x3e1c), 0x78 },
+	{ CCI_REG8(0x3e1e), 0x50 }, { CCI_REG8(0x3e20), 0x50 },
+	{ CCI_REG8(0x3e22), 0x50 }, { CCI_REG8(0x3e24), 0x87 },
+	{ CCI_REG8(0x3e26), 0x91 }, { CCI_REG8(0x3e28), 0x91 },
+	{ CCI_REG8(0x3e2a), 0x87 }, { CCI_REG8(0x3e2c), 0x78 },
+	{ CCI_REG8(0x3e2e), 0x50 }, { CCI_REG8(0x3e30), 0x50 },
+	{ CCI_REG8(0x3e32), 0x50 }, { CCI_REG8(0x3e34), 0x87 },
+	{ CCI_REG8(0x3e36), 0x91 }, { CCI_REG8(0x3e38), 0x91 },
+	{ CCI_REG8(0x3e3a), 0x87 }, { CCI_REG8(0x3e3c), 0x78 },
+	{ CCI_REG8(0x3e3e), 0x50 }, { CCI_REG8(0x3e40), 0x50 },
+	{ CCI_REG8(0x3e42), 0x50 }, { CCI_REG8(0x4054), 0x64 },
+	{ CCI_REG8(0x4148), 0xfe }, { CCI_REG8(0x4149), 0x05 },
+	{ CCI_REG8(0x414a), 0xff }, { CCI_REG8(0x414b), 0x05 },
+	{ CCI_REG8(0x420a), 0x03 }, { CCI_REG8(0x4231), 0x08 },
+	{ CCI_REG8(0x423d), 0x9c }, { CCI_REG8(0x4242), 0xb4 },
+	{ CCI_REG8(0x4246), 0xb4 }, { CCI_REG8(0x424e), 0xb4 },
+	{ CCI_REG8(0x425c), 0xb4 }, { CCI_REG8(0x425e), 0xb6 },
+	{ CCI_REG8(0x426c), 0xb4 }, { CCI_REG8(0x426e), 0xb6 },
+	{ CCI_REG8(0x428c), 0xb4 }, { CCI_REG8(0x428e), 0xb6 },
 	{ CCI_REG8(0x4708), 0x00 }, { CCI_REG8(0x4709), 0x00 },
-	{ CCI_REG8(0x470A), 0xFF }, { CCI_REG8(0x470B), 0x03 },
-	{ CCI_REG8(0x470C), 0x00 }, { CCI_REG8(0x470D), 0x00 },
-	{ CCI_REG8(0x470E), 0xFF }, { CCI_REG8(0x470F), 0x03 },
-	{ CCI_REG8(0x47EB), 0x1C }, { CCI_REG8(0x47F0), 0xA6 },
-	{ CCI_REG8(0x47F2), 0xA6 }, { CCI_REG8(0x47F4), 0xA0 },
-	{ CCI_REG8(0x47F6), 0x96 }, { CCI_REG8(0x4808), 0xA6 },
-	{ CCI_REG8(0x480A), 0xA6 }, { CCI_REG8(0x480C), 0xA0 },
-	{ CCI_REG8(0x480E), 0x96 }, { CCI_REG8(0x492C), 0xB2 },
+	{ CCI_REG8(0x470a), 0xff }, { CCI_REG8(0x470b), 0x03 },
+	{ CCI_REG8(0x470c), 0x00 }, { CCI_REG8(0x470d), 0x00 },
+	{ CCI_REG8(0x470e), 0xff }, { CCI_REG8(0x470f), 0x03 },
+	{ CCI_REG8(0x47eb), 0x1c }, { CCI_REG8(0x47f0), 0xa6 },
+	{ CCI_REG8(0x47f2), 0xa6 }, { CCI_REG8(0x47f4), 0xa0 },
+	{ CCI_REG8(0x47f6), 0x96 }, { CCI_REG8(0x4808), 0xa6 },
+	{ CCI_REG8(0x480a), 0xa6 }, { CCI_REG8(0x480c), 0xa0 },
+	{ CCI_REG8(0x480e), 0x96 }, { CCI_REG8(0x492c), 0xb2 },
 	{ CCI_REG8(0x4930), 0x03 }, { CCI_REG8(0x4932), 0x03 },
-	{ CCI_REG8(0x4936), 0x5B }, { CCI_REG8(0x4938), 0x82 },
-	{ CCI_REG8(0x493E), 0x23 }, { CCI_REG8(0x4BA8), 0x1C },
-	{ CCI_REG8(0x4BA9), 0x03 }, { CCI_REG8(0x4BAC), 0x1C },
-	{ CCI_REG8(0x4BAD), 0x1C }, { CCI_REG8(0x4BAE), 0x1C },
-	{ CCI_REG8(0x4BAF), 0x1C }, { CCI_REG8(0x4BB0), 0x1C },
-	{ CCI_REG8(0x4BB1), 0x1C }, { CCI_REG8(0x4BB2), 0x1C },
-	{ CCI_REG8(0x4BB3), 0x1C }, { CCI_REG8(0x4BB4), 0x1C },
-	{ CCI_REG8(0x4BB8), 0x03 }, { CCI_REG8(0x4BB9), 0x03 },
-	{ CCI_REG8(0x4BBA), 0x03 }, { CCI_REG8(0x4BBB), 0x03 },
-	{ CCI_REG8(0x4BBC), 0x03 }, { CCI_REG8(0x4BBD), 0x03 },
-	{ CCI_REG8(0x4BBE), 0x03 }, { CCI_REG8(0x4BBF), 0x03 },
-	{ CCI_REG8(0x4BC0), 0x03 }, { CCI_REG8(0x4C14), 0x87 },
-	{ CCI_REG8(0x4C16), 0x91 }, { CCI_REG8(0x4C18), 0x91 },
-	{ CCI_REG8(0x4C1A), 0x87 }, { CCI_REG8(0x4C1C), 0x78 },
-	{ CCI_REG8(0x4C1E), 0x50 }, { CCI_REG8(0x4C20), 0x50 },
-	{ CCI_REG8(0x4C22), 0x50 }, { CCI_REG8(0x4C24), 0x87 },
-	{ CCI_REG8(0x4C26), 0x91 }, { CCI_REG8(0x4C28), 0x91 },
-	{ CCI_REG8(0x4C2A), 0x87 }, { CCI_REG8(0x4C2C), 0x78 },
-	{ CCI_REG8(0x4C2E), 0x50 }, { CCI_REG8(0x4C30), 0x50 },
-	{ CCI_REG8(0x4C32), 0x50 }, { CCI_REG8(0x4C34), 0x87 },
-	{ CCI_REG8(0x4C36), 0x91 }, { CCI_REG8(0x4C38), 0x91 },
-	{ CCI_REG8(0x4C3A), 0x87 }, { CCI_REG8(0x4C3C), 0x78 },
-	{ CCI_REG8(0x4C3E), 0x50 }, { CCI_REG8(0x4C40), 0x50 },
-	{ CCI_REG8(0x4C42), 0x50 }, { CCI_REG8(0x4D12), 0x1F },
-	{ CCI_REG8(0x4D13), 0x1E }, { CCI_REG8(0x4D26), 0x33 },
-	{ CCI_REG8(0x4E0E), 0x59 }, { CCI_REG8(0x4E14), 0x55 },
-	{ CCI_REG8(0x4E16), 0x59 }, { CCI_REG8(0x4E1E), 0x3B },
-	{ CCI_REG8(0x4E20), 0x47 }, { CCI_REG8(0x4E22), 0x54 },
-	{ CCI_REG8(0x4E26), 0x81 }, { CCI_REG8(0x4E2C), 0x7D },
-	{ CCI_REG8(0x4E2E), 0x81 }, { CCI_REG8(0x4E36), 0x63 },
-	{ CCI_REG8(0x4E38), 0x6F }, { CCI_REG8(0x4E3A), 0x7C },
-	{ CCI_REG8(0x4F3A), 0x3C }, { CCI_REG8(0x4F3C), 0x46 },
-	{ CCI_REG8(0x4F3E), 0x59 }, { CCI_REG8(0x4F42), 0x64 },
-	{ CCI_REG8(0x4F44), 0x6E }, { CCI_REG8(0x4F46), 0x81 },
-	{ CCI_REG8(0x4F4A), 0x82 }, { CCI_REG8(0x4F5A), 0x81 },
-	{ CCI_REG8(0x4F62), 0xAA }, { CCI_REG8(0x4F72), 0xA9 },
-	{ CCI_REG8(0x4F78), 0x36 }, { CCI_REG8(0x4F7A), 0x41 },
-	{ CCI_REG8(0x4F7C), 0x61 }, { CCI_REG8(0x4F7D), 0x01 },
-	{ CCI_REG8(0x4F7E), 0x7C }, { CCI_REG8(0x4F7F), 0x01 },
-	{ CCI_REG8(0x4F80), 0x77 }, { CCI_REG8(0x4F82), 0x7B },
-	{ CCI_REG8(0x4F88), 0x37 }, { CCI_REG8(0x4F8A), 0x40 },
-	{ CCI_REG8(0x4F8C), 0x62 }, { CCI_REG8(0x4F8D), 0x01 },
-	{ CCI_REG8(0x4F8E), 0x76 }, { CCI_REG8(0x4F8F), 0x01 },
-	{ CCI_REG8(0x4F90), 0x5E }, { CCI_REG8(0x4F91), 0x02 },
-	{ CCI_REG8(0x4F92), 0x69 }, { CCI_REG8(0x4F93), 0x02 },
-	{ CCI_REG8(0x4F94), 0x89 }, { CCI_REG8(0x4F95), 0x02 },
-	{ CCI_REG8(0x4F96), 0xA4 }, { CCI_REG8(0x4F97), 0x02 },
-	{ CCI_REG8(0x4F98), 0x9F }, { CCI_REG8(0x4F99), 0x02 },
-	{ CCI_REG8(0x4F9A), 0xA3 }, { CCI_REG8(0x4F9B), 0x02 },
-	{ CCI_REG8(0x4FA0), 0x5F }, { CCI_REG8(0x4FA1), 0x02 },
-	{ CCI_REG8(0x4FA2), 0x68 }, { CCI_REG8(0x4FA3), 0x02 },
-	{ CCI_REG8(0x4FA4), 0x8A }, { CCI_REG8(0x4FA5), 0x02 },
-	{ CCI_REG8(0x4FA6), 0x9E }, { CCI_REG8(0x4FA7), 0x02 },
-	{ CCI_REG8(0x519E), 0x79 }, { CCI_REG8(0x51A6), 0xA1 },
-	{ CCI_REG8(0x51F0), 0xAC }, { CCI_REG8(0x51F2), 0xAA },
-	{ CCI_REG8(0x51F4), 0xA5 }, { CCI_REG8(0x51F6), 0xA0 },
-	{ CCI_REG8(0x5200), 0x9B }, { CCI_REG8(0x5202), 0x91 },
+	{ CCI_REG8(0x4936), 0x5b }, { CCI_REG8(0x4938), 0x82 },
+	{ CCI_REG8(0x493e), 0x23 }, { CCI_REG8(0x4ba8), 0x1c },
+	{ CCI_REG8(0x4ba9), 0x03 }, { CCI_REG8(0x4bac), 0x1c },
+	{ CCI_REG8(0x4bad), 0x1c }, { CCI_REG8(0x4bae), 0x1c },
+	{ CCI_REG8(0x4baf), 0x1c }, { CCI_REG8(0x4bb0), 0x1c },
+	{ CCI_REG8(0x4bb1), 0x1c }, { CCI_REG8(0x4bb2), 0x1c },
+	{ CCI_REG8(0x4bb3), 0x1c }, { CCI_REG8(0x4bb4), 0x1c },
+	{ CCI_REG8(0x4bb8), 0x03 }, { CCI_REG8(0x4bb9), 0x03 },
+	{ CCI_REG8(0x4bba), 0x03 }, { CCI_REG8(0x4bbb), 0x03 },
+	{ CCI_REG8(0x4bbc), 0x03 }, { CCI_REG8(0x4bbd), 0x03 },
+	{ CCI_REG8(0x4bbe), 0x03 }, { CCI_REG8(0x4bbf), 0x03 },
+	{ CCI_REG8(0x4bc0), 0x03 }, { CCI_REG8(0x4c14), 0x87 },
+	{ CCI_REG8(0x4c16), 0x91 }, { CCI_REG8(0x4c18), 0x91 },
+	{ CCI_REG8(0x4c1a), 0x87 }, { CCI_REG8(0x4c1c), 0x78 },
+	{ CCI_REG8(0x4c1e), 0x50 }, { CCI_REG8(0x4c20), 0x50 },
+	{ CCI_REG8(0x4c22), 0x50 }, { CCI_REG8(0x4c24), 0x87 },
+	{ CCI_REG8(0x4c26), 0x91 }, { CCI_REG8(0x4c28), 0x91 },
+	{ CCI_REG8(0x4c2a), 0x87 }, { CCI_REG8(0x4c2c), 0x78 },
+	{ CCI_REG8(0x4c2e), 0x50 }, { CCI_REG8(0x4c30), 0x50 },
+	{ CCI_REG8(0x4c32), 0x50 }, { CCI_REG8(0x4c34), 0x87 },
+	{ CCI_REG8(0x4c36), 0x91 }, { CCI_REG8(0x4c38), 0x91 },
+	{ CCI_REG8(0x4c3a), 0x87 }, { CCI_REG8(0x4c3c), 0x78 },
+	{ CCI_REG8(0x4c3e), 0x50 }, { CCI_REG8(0x4c40), 0x50 },
+	{ CCI_REG8(0x4c42), 0x50 }, { CCI_REG8(0x4d12), 0x1f },
+	{ CCI_REG8(0x4d13), 0x1e }, { CCI_REG8(0x4d26), 0x33 },
+	{ CCI_REG8(0x4e0e), 0x59 }, { CCI_REG8(0x4e14), 0x55 },
+	{ CCI_REG8(0x4e16), 0x59 }, { CCI_REG8(0x4e1e), 0x3b },
+	{ CCI_REG8(0x4e20), 0x47 }, { CCI_REG8(0x4e22), 0x54 },
+	{ CCI_REG8(0x4e26), 0x81 }, { CCI_REG8(0x4e2c), 0x7d },
+	{ CCI_REG8(0x4e2e), 0x81 }, { CCI_REG8(0x4e36), 0x63 },
+	{ CCI_REG8(0x4e38), 0x6f }, { CCI_REG8(0x4e3a), 0x7c },
+	{ CCI_REG8(0x4f3a), 0x3c }, { CCI_REG8(0x4f3c), 0x46 },
+	{ CCI_REG8(0x4f3e), 0x59 }, { CCI_REG8(0x4f42), 0x64 },
+	{ CCI_REG8(0x4f44), 0x6e }, { CCI_REG8(0x4f46), 0x81 },
+	{ CCI_REG8(0x4f4a), 0x82 }, { CCI_REG8(0x4f5a), 0x81 },
+	{ CCI_REG8(0x4f62), 0xaa }, { CCI_REG8(0x4f72), 0xa9 },
+	{ CCI_REG8(0x4f78), 0x36 }, { CCI_REG8(0x4f7a), 0x41 },
+	{ CCI_REG8(0x4f7c), 0x61 }, { CCI_REG8(0x4f7d), 0x01 },
+	{ CCI_REG8(0x4f7e), 0x7c }, { CCI_REG8(0x4f7f), 0x01 },
+	{ CCI_REG8(0x4f80), 0x77 }, { CCI_REG8(0x4f82), 0x7b },
+	{ CCI_REG8(0x4f88), 0x37 }, { CCI_REG8(0x4f8a), 0x40 },
+	{ CCI_REG8(0x4f8c), 0x62 }, { CCI_REG8(0x4f8d), 0x01 },
+	{ CCI_REG8(0x4f8e), 0x76 }, { CCI_REG8(0x4f8f), 0x01 },
+	{ CCI_REG8(0x4f90), 0x5e }, { CCI_REG8(0x4f91), 0x02 },
+	{ CCI_REG8(0x4f92), 0x69 }, { CCI_REG8(0x4f93), 0x02 },
+	{ CCI_REG8(0x4f94), 0x89 }, { CCI_REG8(0x4f95), 0x02 },
+	{ CCI_REG8(0x4f96), 0xa4 }, { CCI_REG8(0x4f97), 0x02 },
+	{ CCI_REG8(0x4f98), 0x9f }, { CCI_REG8(0x4f99), 0x02 },
+	{ CCI_REG8(0x4f9a), 0xa3 }, { CCI_REG8(0x4f9b), 0x02 },
+	{ CCI_REG8(0x4fa0), 0x5f }, { CCI_REG8(0x4fa1), 0x02 },
+	{ CCI_REG8(0x4fa2), 0x68 }, { CCI_REG8(0x4fa3), 0x02 },
+	{ CCI_REG8(0x4fa4), 0x8a }, { CCI_REG8(0x4fa5), 0x02 },
+	{ CCI_REG8(0x4fa6), 0x9e }, { CCI_REG8(0x4fa7), 0x02 },
+	{ CCI_REG8(0x519e), 0x79 }, { CCI_REG8(0x51a6), 0xa1 },
+	{ CCI_REG8(0x51f0), 0xac }, { CCI_REG8(0x51f2), 0xaa },
+	{ CCI_REG8(0x51f4), 0xa5 }, { CCI_REG8(0x51f6), 0xa0 },
+	{ CCI_REG8(0x5200), 0x9b }, { CCI_REG8(0x5202), 0x91 },
 	{ CCI_REG8(0x5204), 0x87 }, { CCI_REG8(0x5206), 0x82 },
-	{ CCI_REG8(0x5208), 0xAC }, { CCI_REG8(0x520A), 0xAA },
-	{ CCI_REG8(0x520C), 0xA5 }, { CCI_REG8(0x520E), 0xA0 },
-	{ CCI_REG8(0x5210), 0x9B }, { CCI_REG8(0x5212), 0x91 },
+	{ CCI_REG8(0x5208), 0xac }, { CCI_REG8(0x520a), 0xaa },
+	{ CCI_REG8(0x520c), 0xa5 }, { CCI_REG8(0x520e), 0xa0 },
+	{ CCI_REG8(0x5210), 0x9b }, { CCI_REG8(0x5212), 0x91 },
 	{ CCI_REG8(0x5214), 0x87 }, { CCI_REG8(0x5216), 0x82 },
-	{ CCI_REG8(0x5218), 0xAC }, { CCI_REG8(0x521A), 0xAA },
-	{ CCI_REG8(0x521C), 0xA5 }, { CCI_REG8(0x521E), 0xA0 },
-	{ CCI_REG8(0x5220), 0x9B }, { CCI_REG8(0x5222), 0x91 },
+	{ CCI_REG8(0x5218), 0xac }, { CCI_REG8(0x521a), 0xaa },
+	{ CCI_REG8(0x521c), 0xa5 }, { CCI_REG8(0x521e), 0xa0 },
+	{ CCI_REG8(0x5220), 0x9b }, { CCI_REG8(0x5222), 0x91 },
 	{ CCI_REG8(0x5224), 0x87 }, { CCI_REG8(0x5226), 0x82 },
 };
 
 static const struct cci_reg_sequence common_clearHDR_mode[] = {
-	{ CCI_REG8(0x301A), 0x10 }, /* WDMODE: Clear HDR */
+	{ CCI_REG8(0x301a), 0x10 }, /* WDMODE: Clear HDR */
 	{ CCI_REG8(0x3024), 0x02 }, /* COMBI_EN */
 	{ CCI_REG8(0x3069), 0x02 },
 	{ CCI_REG8(0x3074), 0x63 },
-	{ CCI_REG8(0x3930), 0xE6 }, /* DUR[15:8] (12-bit) */
+	{ CCI_REG8(0x3930), 0xe6 }, /* DUR[15:8] (12-bit) */
 	{ CCI_REG8(0x3931), 0x00 }, /* DUR[7:0]  (12-bit) */
-	{ CCI_REG8(0x3A4C), 0x61 }, { CCI_REG8(0x3A4D), 0x02 },
-	{ CCI_REG8(0x3A50), 0x70 }, { CCI_REG8(0x3A51), 0x02 },
-	{ CCI_REG8(0x3E10), 0x17 }, /* ADTHEN */
-	{ CCI_REG8(0x493C), 0x41 }, /* 10-bit off */
-	{ CCI_REG8(0x4940), 0x41 }, /* 12-bit on */
+	{ CCI_REG8(0x3a4c), 0x61 }, { CCI_REG8(0x3a4d), 0x02 },
+	{ CCI_REG8(0x3a50), 0x70 }, { CCI_REG8(0x3a51), 0x02 },
+	{ CCI_REG8(0x3e10), 0x17 }, /* ADTHEN */
+	{ CCI_REG8(0x493c), 0x41 }, /* 10-bit HDR */
+	{ CCI_REG8(0x4940), 0x41 }, /* 12-bit HDR */
 	{ CCI_REG8(0x3081), 0x02 }, /* EXP_GAIN: +12 dB default */
 };
 
 static const struct cci_reg_sequence common_normal_mode[] = {
-	{ CCI_REG8(0x301A), 0x00 }, /* WDMODE: Normal */
+	{ CCI_REG8(0x301a), 0x00 }, /* WDMODE: Normal */
 	{ CCI_REG8(0x3024), 0x00 }, /* COMBI_EN */
 	{ CCI_REG8(0x3069), 0x00 },
 	{ CCI_REG8(0x3074), 0x64 },
-	{ CCI_REG8(0x3930), 0x0C }, /* DUR[15:8] (12-bit) */
+	{ CCI_REG8(0x3930), 0x0c }, /* DUR[15:8] (12-bit) */
 	{ CCI_REG8(0x3931), 0x01 }, /* DUR[7:0]  (12-bit) */
-	{ CCI_REG8(0x3A4C), 0x39 }, { CCI_REG8(0x3A4D), 0x01 },
-	{ CCI_REG8(0x3A50), 0x48 }, { CCI_REG8(0x3A51), 0x01 },
-	{ CCI_REG8(0x3E10), 0x10 }, /* ADTHEN */
-	{ CCI_REG8(0x493C), 0x23 }, /* 10-bit Normal */
+	{ CCI_REG8(0x3a4c), 0x39 }, { CCI_REG8(0x3a4d), 0x01 },
+	{ CCI_REG8(0x3a50), 0x48 }, { CCI_REG8(0x3a51), 0x01 },
+	{ CCI_REG8(0x3e10), 0x10 }, /* ADTHEN */
+	{ CCI_REG8(0x493c), 0x23 }, /* 10-bit Normal */
 	{ CCI_REG8(0x4940), 0x23 }, /* 12-bit Normal */
 };
 
 /* All-pixel 4K, 12-bit */
 static const struct cci_reg_sequence mode_4k_regs_12bit[] = {
-	{ CCI_REG8(0x301B), 0x00 }, /* ADDMODE non-binning */
+	{ CCI_REG8(0x301b), 0x00 }, /* ADDMODE non-binning */
 	{ CCI_REG8(0x3022), 0x02 }, /* ADBIT 12-bit */
 	{ CCI_REG8(0x3023), 0x01 }, /* MDBIT 12-bit */
-	{ CCI_REG8(0x30D5), 0x04 }, /* DIG_CLP_VSTART non-binning */
+	{ CCI_REG8(0x30d5), 0x04 }, /* DIG_CLP_VSTART non-binning */
 };
 
 /* 2x2 binned 1080p, 12-bit */
 static const struct cci_reg_sequence mode_1080_regs_12bit[] = {
-	{ CCI_REG8(0x301B), 0x01 }, /* ADDMODE binning */
+	{ CCI_REG8(0x301b), 0x01 }, /* ADDMODE binning */
 	{ CCI_REG8(0x3022), 0x02 }, /* ADBIT 12-bit */
 	{ CCI_REG8(0x3023), 0x01 }, /* MDBIT 12-bit */
-	{ CCI_REG8(0x30D5), 0x02 }, /* DIG_CLP_VSTART binning */
+	{ CCI_REG8(0x30d5), 0x02 }, /* DIG_CLP_VSTART binning */
 };
 
 /* --------------------------------------------------------------------------
@@ -573,32 +573,35 @@ static inline void get_mode_table(struct imx585 *imx585, unsigned int code,
 	*num_modes = 0;
 
 	if (imx585->mono) {
-		if (imx585->clear_hdr) {
-			if (code == MEDIA_BUS_FMT_Y16_1X16) {
-				*mode_list = supported_modes;
-				*num_modes = ARRAY_SIZE(supported_modes);
-			}
-		} else if (code == MEDIA_BUS_FMT_Y12_1X12) {
+		/* --- Mono paths --- */
+		if (code == MEDIA_BUS_FMT_Y16_1X16 && imx585->clear_hdr) {
 			*mode_list = supported_modes;
 			*num_modes = ARRAY_SIZE(supported_modes);
 		}
-		return;
-	}
-
-	switch (code) {
-	case MEDIA_BUS_FMT_SRGGB16_1X16:
-	case MEDIA_BUS_FMT_SGRBG16_1X16:
-	case MEDIA_BUS_FMT_SGBRG16_1X16:
-	case MEDIA_BUS_FMT_SBGGR16_1X16:
-	case MEDIA_BUS_FMT_SRGGB12_1X12:
-	case MEDIA_BUS_FMT_SGRBG12_1X12:
-	case MEDIA_BUS_FMT_SGBRG12_1X12:
-	case MEDIA_BUS_FMT_SBGGR12_1X12:
-		*mode_list = supported_modes;
-		*num_modes = ARRAY_SIZE(supported_modes);
-		break;
-	default:
-		break;
+		if (code == MEDIA_BUS_FMT_Y12_1X12) {
+			*mode_list = supported_modes;
+			*num_modes = ARRAY_SIZE(supported_modes);
+		}
+	} else {
+		/* --- Color paths --- */
+		switch (code) {
+		/* 16-bit */
+		case MEDIA_BUS_FMT_SRGGB16_1X16:
+		case MEDIA_BUS_FMT_SGRBG16_1X16:
+		case MEDIA_BUS_FMT_SGBRG16_1X16:
+		case MEDIA_BUS_FMT_SBGGR16_1X16:
+		/* 12-bit */
+		case MEDIA_BUS_FMT_SRGGB12_1X12:
+		case MEDIA_BUS_FMT_SGRBG12_1X12:
+		case MEDIA_BUS_FMT_SGBRG12_1X12:
+		case MEDIA_BUS_FMT_SBGGR12_1X12:
+			*mode_list = supported_modes;
+			*num_modes = ARRAY_SIZE(supported_modes);
+			break;
+		default:
+			*mode_list = NULL;
+			*num_modes = 0;
+		}
 	}
 }
 
@@ -739,7 +742,11 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 			v4l2_ctrl_activate(imx585->hdr_gain_ctrl,    imx585->clear_hdr);
 			v4l2_ctrl_activate(imx585->hcg_ctrl,        !imx585->clear_hdr);
 
+			/* Disable HCG in ClearHDR mode */
+			imx585->hcg = imx585->clear_hdr ? 0 : imx585->hcg;
+			__v4l2_ctrl_s_ctrl(imx585->hcg_ctrl, imx585->hcg);
 			imx585_update_gain_limits(imx585);
+			dev_info(imx585->clientdev, "ClearHDR=%u, HCG=%u\n", ctrl->val, imx585->hcg);
 
 			code = imx585->mono ? MEDIA_BUS_FMT_Y12_1X12
 					    : MEDIA_BUS_FMT_SRGGB12_1X12;
@@ -747,6 +754,13 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 			mode = v4l2_find_nearest_size(mode_list, num_modes, width, height,
 						      fmt->width, fmt->height);
 			imx585_set_framing_limits(imx585, mode);
+		}
+		break;
+	case V4L2_CID_IMX585_HCG_GAIN:
+		if (!imx585->clear_hdr) {
+			imx585->hcg = ctrl->val;
+			imx585_update_gain_limits(imx585);
+			dev_info(imx585->clientdev, "HCG=%u\n", ctrl->val);
 		}
 		break;
 	default:
@@ -770,18 +784,16 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	}
 	case V4L2_CID_IMX585_HCG_GAIN:
-		if (!(ctrl->flags & V4L2_CTRL_FLAG_INACTIVE)) {
-			imx585->hcg = ctrl->val;
-			imx585_update_gain_limits(imx585);
-
+		if (!imx585->clear_hdr) {
 			ret = cci_write(imx585->regmap, IMX585_REG_FDG_SEL0, ctrl->val, NULL);
 			if (ret)
-				dev_err_ratelimited(imx585->clientdev, "FDG_SEL0 write failed (%d)\n", ret);
-			dev_dbg(imx585->clientdev, "HCG=%u\n", ctrl->val);
+				dev_err_ratelimited(imx585->clientdev, 
+						    "FDG_SEL0 write failed (%d)\n", ret);
+			dev_info(imx585->clientdev, "HCG write reg=%u\n", ctrl->val);
 		}
 		break;
 	case V4L2_CID_ANALOGUE_GAIN:
-		dev_dbg(imx585->clientdev, "ANALOG_GAIN=%u (%s)\n",
+		dev_info(imx585->clientdev, "ANALOG_GAIN=%u (%s)\n",
 			ctrl->val, imx585->hcg ? "HCG" : "LCG");
 
 		ret = cci_write(imx585->regmap, IMX585_REG_ANALOG_GAIN, ctrl->val, NULL);
@@ -841,6 +853,8 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 			dev_err_ratelimited(imx585->clientdev, "BLKLEVEL write failed (%d)\n", ret);
 		break;
 	}
+	case V4L2_CID_WIDE_DYNAMIC_RANGE: /* Handled above */
+		break;
 	case V4L2_CID_IMX585_HDR_DATASEL_TH: {
 		const u16 *th = (const u16 *)ctrl->p_new.p;
 
@@ -882,8 +896,8 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 			dev_err_ratelimited(imx585->clientdev, "HDR gain write failed (%d)\n", ret);
 		break;
 	default:
-		dev_dbg(imx585->clientdev, "Unhandled ctrl id=0x%x val=0x%x\n",
-			ctrl->id, ctrl->val);
+		dev_info(imx585->clientdev, "Unhandled ctrl %s: id=0x%x, val=0x%x\n",
+			ctrl->name, ctrl->id, ctrl->val);
 		break;
 	}
 
@@ -1412,11 +1426,13 @@ static int imx585_init_state(struct v4l2_subdev *sd,
 			     struct v4l2_subdev_state *state)
 {
 	struct v4l2_rect *crop;
+	struct imx585 *imx585 = to_imx585(sd);
 	struct v4l2_subdev_format fmt = {
 		.which  = V4L2_SUBDEV_FORMAT_TRY,
 		.pad    = 0,
 		.format = {
-			.code   = MEDIA_BUS_FMT_SRGGB12_1X12,
+			.code   = imx585->mono ? MEDIA_BUS_FMT_Y12_1X12
+					    : MEDIA_BUS_FMT_SRGGB12_1X12,
 			.width  = supported_modes[0].width,
 			.height = supported_modes[0].height,
 		},
