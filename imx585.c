@@ -25,7 +25,8 @@
 
 /* --------------------------------------------------------------------------
  * Driver-local custom controls
- * -------------------------------------------------------------------------- */
+ * --------------------------------------------------------------------------
+ */
 
 #ifndef V4L2_CID_USER_IMX585_BASE
 #define V4L2_CID_USER_IMX585_BASE (V4L2_CID_USER_BASE + 0x2000)
@@ -41,7 +42,8 @@
 
 /* --------------------------------------------------------------------------
  * Registers / limits
- * -------------------------------------------------------------------------- */
+ * --------------------------------------------------------------------------
+ */
 
 /* Standby or streaming mode */
 #define IMX585_REG_MODE_SELECT          CCI_REG8(0x3000)
@@ -219,7 +221,7 @@ static const char * const hdr_data_blender_menu[] = {
 
 static const char * const grad_compression_slope_menu[] = {
 	"1/1", "1/2", "1/4",  "1/8",   "1/16", "1/32",
-	"1/64","1/128","1/256","1/512","1/1024","1/2048",
+	"1/64", "1/128", "1/256", "1/512", "1/1024", "1/2048",
 };
 
 enum {
@@ -253,7 +255,8 @@ struct imx585_mode {
 
 /* --------------------------------------------------------------------------
  * Register tables
- * -------------------------------------------------------------------------- */
+ * --------------------------------------------------------------------------
+ */
 
 static const struct cci_reg_sequence common_regs[] = {
 	{ CCI_REG8(0x3002), 0x01 },
@@ -424,7 +427,7 @@ static const struct cci_reg_sequence mode_1080_regs_12bit[] = {
 
 /* --------------------------------------------------------------------------
  * Mode list
- * -------------------------------------------------------------------------- 
+ * --------------------------------------------------------------------------
  * Default:
  *   12Bit - FHD, 4K
  * ClearHDR Enabled:
@@ -521,7 +524,8 @@ static const char * const imx585_supply_name[] = {
 
 /* --------------------------------------------------------------------------
  * State
- * -------------------------------------------------------------------------- */
+ * --------------------------------------------------------------------------
+ */
 
 struct imx585 {
 	struct v4l2_subdev sd;
@@ -567,7 +571,7 @@ struct imx585 {
 	bool mono;
 	bool clear_hdr;
 
-	/* 
+	/*
 	 * Sync Mode
 	 * 0 = Internal Sync Leader Mode
 	 * 1 = External Sync Leader Mode
@@ -685,7 +689,7 @@ static void imx585_update_hmax(struct imx585 *imx585)
 	unsigned int i;
 
 	dev_info(imx585->clientdev, "Update minimum HMAX: base=%u lane_scale=%u hdr_scale=%u\n",
-		base_4lane, lane_scale, hdr_scale);
+		 base_4lane, lane_scale, hdr_scale);
 
 	for (i = 0; i < ARRAY_SIZE(supported_modes); ++i) {
 		u32 h = factor / supported_modes[i].hmax_div;
@@ -695,7 +699,7 @@ static void imx585_update_hmax(struct imx585 *imx585)
 		supported_modes[i].min_vmax = v;
 
 		dev_info(imx585->clientdev, " mode %ux%u -> VMAX=%u HMAX=%u\n",
-			supported_modes[i].width, supported_modes[i].height, v, h);
+			 supported_modes[i].width, supported_modes[i].height, v, h);
 	}
 }
 
@@ -734,12 +738,13 @@ static void imx585_set_framing_limits(struct imx585 *imx585,
 				 IMX585_EXPOSURE_DEFAULT);
 
 	dev_info(imx585->clientdev, "Framing: VMAX=%u HMAX=%u pixel_rate=%llu\n",
-		imx585->vmax, imx585->hmax, pixel_rate);
+		 imx585->vmax, imx585->hmax, pixel_rate);
 }
 
 /* --------------------------------------------------------------------------
  * Controls
- * -------------------------------------------------------------------------- */
+ * --------------------------------------------------------------------------
+ */
 
 static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 {
@@ -776,7 +781,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 			imx585->hcg = imx585->clear_hdr ? 0 : imx585->hcg;
 			__v4l2_ctrl_s_ctrl(imx585->hcg_ctrl, imx585->hcg);
 			imx585_update_gain_limits(imx585);
-			dev_info(imx585->clientdev, "ClearHDR=%u, HCG=%u\n", ctrl->val, imx585->hcg);
+			dev_info(imx585->clientdev, "HDR=%u, HCG=%u\n", ctrl->val, imx585->hcg);
 
 			code = imx585->mono ? MEDIA_BUS_FMT_Y12_1X12
 					    : MEDIA_BUS_FMT_SRGGB12_1X12;
@@ -817,7 +822,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		if (!imx585->clear_hdr) {
 			ret = cci_write(imx585->regmap, IMX585_REG_FDG_SEL0, ctrl->val, NULL);
 			if (ret)
-				dev_err_ratelimited(imx585->clientdev, 
+				dev_err_ratelimited(imx585->clientdev,
 						    "FDG_SEL0 write failed (%d)\n", ret);
 			dev_info(imx585->clientdev, "HCG write reg=%u\n", ctrl->val);
 		}
@@ -828,7 +833,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 
 		ret = cci_write(imx585->regmap, IMX585_REG_ANALOG_GAIN, ctrl->val, NULL);
 		if (ret)
-			dev_err_ratelimited(imx585->clientdev, "Analog gain write failed (%d)\n", ret);
+			dev_err_ratelimited(imx585->clientdev, "Gain write failed (%d)\n", ret);
 		break;
 	case V4L2_CID_VBLANK: {
 		u32 current_exposure = imx585->exposure->cur.val;
@@ -907,27 +912,31 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		if (!ret)
 			ret = cci_write(imx585->regmap, IMX585_REG_CCMP2_EXP, thr[1], NULL);
 		if (ret)
-			dev_err_ratelimited(imx585->clientdev, "HDR grad TH write failed (%d)\n", ret);
+			dev_err_ratelimited(imx585->clientdev,
+					    "HDR grad TH write failed (%d)\n", ret);
 		break;
 	}
 	case V4L2_CID_IMX585_HDR_GRAD_COMP_L:
 		ret = cci_write(imx585->regmap, IMX585_REG_ACMP1_EXP, ctrl->val, NULL);
 		if (ret)
-			dev_err_ratelimited(imx585->clientdev, "HDR grad low write failed (%d)\n", ret);
+			dev_err_ratelimited(imx585->clientdev,
+					    "HDR grad low write failed (%d)\n", ret);
 		break;
 	case V4L2_CID_IMX585_HDR_GRAD_COMP_H:
 		ret = cci_write(imx585->regmap, IMX585_REG_ACMP2_EXP, ctrl->val, NULL);
 		if (ret)
-			dev_err_ratelimited(imx585->clientdev, "HDR grad high write failed (%d)\n", ret);
+			dev_err_ratelimited(imx585->clientdev,
+					    "HDR grad high write failed (%d)\n", ret);
 		break;
 	case V4L2_CID_IMX585_HDR_GAIN:
 		ret = cci_write(imx585->regmap, IMX585_REG_EXP_GAIN, ctrl->val, NULL);
 		if (ret)
-			dev_err_ratelimited(imx585->clientdev, "HDR gain write failed (%d)\n", ret);
+			dev_err_ratelimited(imx585->clientdev,
+					    "HDR gain write failed (%d)\n", ret);
 		break;
 	default:
 		dev_info(imx585->clientdev, "Unhandled ctrl %s: id=0x%x, val=0x%x\n",
-			ctrl->name, ctrl->id, ctrl->val);
+			 ctrl->name, ctrl->id, ctrl->val);
 		break;
 	}
 
@@ -1120,7 +1129,8 @@ static void imx585_free_controls(struct imx585 *imx585)
 
 /* --------------------------------------------------------------------------
  * Pad ops / formats
- * -------------------------------------------------------------------------- */
+ * --------------------------------------------------------------------------
+ */
 
 static int imx585_enum_mbus_code(struct v4l2_subdev *sd,
 				 struct v4l2_subdev_state *sd_state,
@@ -1212,7 +1222,8 @@ static int imx585_set_pad_format(struct v4l2_subdev *sd,
 
 /* --------------------------------------------------------------------------
  * Stream on/off
- * -------------------------------------------------------------------------- */
+ * --------------------------------------------------------------------------
+ */
 
 static int imx585_enable_streams(struct v4l2_subdev *sd,
 				 struct v4l2_subdev_state *state, u32 pad,
@@ -1378,7 +1389,8 @@ static int imx585_disable_streams(struct v4l2_subdev *sd,
 
 /* --------------------------------------------------------------------------
  * Power / runtime PM
- * -------------------------------------------------------------------------- */
+ * --------------------------------------------------------------------------
+ */
 
 static int imx585_power_on(struct device *dev)
 {
@@ -1426,7 +1438,8 @@ static int imx585_power_off(struct device *dev)
 
 /* --------------------------------------------------------------------------
  * Selection / state
- * -------------------------------------------------------------------------- */
+ * --------------------------------------------------------------------------
+ */
 
 static int imx585_get_selection(struct v4l2_subdev *sd,
 				struct v4l2_subdev_state *sd_state,
@@ -1480,7 +1493,8 @@ static int imx585_init_state(struct v4l2_subdev *sd,
 
 /* --------------------------------------------------------------------------
  * Subdev ops
- * -------------------------------------------------------------------------- */
+ * --------------------------------------------------------------------------
+ */
 
 static const struct v4l2_subdev_video_ops imx585_video_ops = {
 	.s_stream = v4l2_subdev_s_stream_helper,
@@ -1507,7 +1521,8 @@ static const struct v4l2_subdev_ops imx585_subdev_ops = {
 
 /* --------------------------------------------------------------------------
  * Probe / remove
- * -------------------------------------------------------------------------- */
+ * --------------------------------------------------------------------------
+ */
 
 static int imx585_check_hwcfg(struct device *dev, struct imx585 *imx585)
 {
