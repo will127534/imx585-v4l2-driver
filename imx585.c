@@ -517,9 +517,8 @@ static u32 imx585_get_format_code(struct imx585 *imx585, u32 code)
 {
 	unsigned int i;
 
-	if (imx585->mono) {
+	if (imx585->mono)
 		return mono_codes[0];
-	}
 
 	for (i = 0; i < ARRAY_SIZE(color_codes); i++)
 		if (color_codes[i] == code)
@@ -536,7 +535,7 @@ static void imx585_update_hmax(struct imx585 *imx585)
 	unsigned int i;
 
 	dev_dbg(imx585->clientdev, "Update minimum HMAX: base=%u lane_scale=%u\n",
-		 base_4lane, lane_scale);
+		base_4lane, lane_scale);
 
 	for (i = 0; i < ARRAY_SIZE(supported_modes); ++i) {
 		u32 h = factor / supported_modes[i].hmax_div;
@@ -544,7 +543,7 @@ static void imx585_update_hmax(struct imx585 *imx585)
 		supported_modes[i].min_hmax = h;
 
 		dev_dbg(imx585->clientdev, " mode %ux%u -> HMAX=%u\n",
-			 supported_modes[i].width, supported_modes[i].height, h);
+			supported_modes[i].width, supported_modes[i].height, h);
 	}
 }
 
@@ -583,7 +582,7 @@ static void imx585_set_framing_limits(struct imx585 *imx585,
 				 IMX585_EXPOSURE_DEFAULT);
 
 	dev_dbg(imx585->clientdev, "Framing: VMAX=%u HMAX=%u pixel_rate=%llu\n",
-		 imx585->vmax, imx585->hmax, pixel_rate);
+		imx585->vmax, imx585->hmax, pixel_rate);
 }
 
 /* --------------------------------------------------------------------------
@@ -683,7 +682,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 	}
 	default:
 		dev_dbg(imx585->clientdev, "Unhandled ctrl %s: id=0x%x, val=0x%x\n",
-			 ctrl->name, ctrl->id, ctrl->val);
+			ctrl->name, ctrl->id, ctrl->val);
 		break;
 	}
 
@@ -1165,7 +1164,7 @@ static int imx585_check_hwcfg(struct device *dev, struct imx585 *imx585)
 	}
 
 	dev_dbg(dev, "Link speed: %llu Hz\n",
-		 (unsigned long long)ep.link_frequencies[0]);
+		(unsigned long long)ep.link_frequencies[0]);
 
 	ret = 0;
 
@@ -1252,7 +1251,7 @@ static int imx585_probe(struct i2c_client *client)
 		return dev_err_probe(dev, -EINVAL, "unsupported XCLK %u Hz\n", imx585->xclk_freq);
 
 	dev_dbg(dev, "XCLK %u Hz -> INCK_SEL 0x%02x\n",
-		 imx585->xclk_freq, imx585->inck_sel_val);
+		imx585->xclk_freq, imx585->inck_sel_val);
 
 	ret = imx585_get_regulators(imx585);
 	if (ret)
