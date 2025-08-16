@@ -701,8 +701,6 @@ static int imx585_init_controls(struct imx585 *imx585)
 	int ret;
 
 	ret = v4l2_ctrl_handler_init(hdl, 16);
-	if (ret)
-		return ret;
 
 	/* Read-only, updated per mode */
 	imx585->pixel_rate = v4l2_ctrl_new_std(hdl, &imx585_ctrl_ops,
@@ -956,7 +954,6 @@ static int imx585_enable_streams(struct v4l2_subdev *sd,
 	return 0;
 
 err_rpm_put:
-	pm_runtime_mark_last_busy(imx585->clientdev);
 	pm_runtime_put_autosuspend(imx585->clientdev);
 	return ret;
 }
@@ -975,7 +972,6 @@ static int imx585_disable_streams(struct v4l2_subdev *sd,
 	__v4l2_ctrl_grab(imx585->vflip, false);
 	__v4l2_ctrl_grab(imx585->hflip, false);
 
-	pm_runtime_mark_last_busy(imx585->clientdev);
 	pm_runtime_put_autosuspend(imx585->clientdev);
 
 	return ret;
