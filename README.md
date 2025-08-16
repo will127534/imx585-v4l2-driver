@@ -88,7 +88,7 @@ dtoverlay=imx585,always-on
 If you are using a monochrome varient, append the dtoverlay with `,mono` like this:  
 ```
 camera_auto_detect=0
-dtoverlay=imx585,mono
+dtoverlay=imx585-mono
 ```
 
 ### Lane Count
@@ -127,7 +127,7 @@ For ClearHDR mode the framerate will be half, for 1080P 2x2 binned the framerate
 Last note is that all the options can be used at the same time, the dtoverlay will looks like this:
 ```
 camera_auto_detect=0
-dtoverlay=imx585,always-on,mono,cam0,link-frequency=297000000
+dtoverlay=imx585-mono,always-on,cam0,link-frequency=297000000
 ```
 Imaging how many config I need to test.
 
