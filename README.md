@@ -4,11 +4,8 @@ This guide provides detailed instructions on how to install the IMX585 kernel dr
 
 ## Special Thanks
 
-Special thanks to Octopuscinema and Soho-enterprise, the driver is based on their imx585 driver here:
-https://github.com/octopuscinema/linux-camera-support/blob/rpi-6.1.y/drivers/media/i2c/imx585.c
-
+Special thanks to Octopuscinema and Soho-enterprise.
 Special thanks to Sasha Shturma's Raspberry Pi CM4 Сarrier with Hi-Res MIPI Display project, the DKMS install script is adapted from the github project page: https://github.com/renetec-io/cm4-panel-jdi-lt070me05000
-
 
 ## Prerequisites
 
