@@ -949,7 +949,7 @@ static int imx585_enable_streams(struct v4l2_subdev *sd,
 	usleep_range(IMX585_STREAM_DELAY_US,
 		     IMX585_STREAM_DELAY_US + IMX585_STREAM_DELAY_RANGE_US);
 
-	/* vflip, hflip and HDR cannot change during streaming */
+	/* vflip, hflip cannot change during streaming */
 	__v4l2_ctrl_grab(imx585->vflip, true);
 	__v4l2_ctrl_grab(imx585->hflip, true);
 
@@ -1216,7 +1216,7 @@ static int imx585_probe(struct i2c_client *client)
 	v4l2_i2c_subdev_init(&imx585->sd, client, &imx585_subdev_ops);
 	imx585->clientdev = dev;
 
-	imx585->mono = of_device_is_compatible(dev->of_node, "sony,imx585-mono");
+	imx585->mono = of_device_is_compatible(dev->of_node, "sony,imx585-aamj1");
 	dev_dbg(dev, "mono=%d\n", imx585->mono);
 
 	imx585->sync_mode = SYNC_INT_LEADER;
@@ -1339,8 +1339,8 @@ static DEFINE_RUNTIME_DEV_PM_OPS(imx585_pm_ops, imx585_power_off,
 				 imx585_power_on, NULL);
 
 static const struct of_device_id imx585_of_match[] = {
-	{ .compatible = "sony,imx585" },
-	{ .compatible = "sony,imx585-mono" }, /* monochrome variant */
+	{ .compatible = "sony,imx585-aaqj1" },
+	{ .compatible = "sony,imx585-aamj1" }, /* monochrome variant */
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, imx585_of_match);

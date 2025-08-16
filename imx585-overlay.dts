@@ -55,13 +55,12 @@
 			status = "okay";
 
 			cam_node: imx585@1a {
-				compatible = "sony,imx585";
+				compatible = "sony,imx585-aaqj1";
 				reg = <0x1a>;
 				clocks = <&cam1_clk>;
 
 				assigned-clocks      = <&cam1_clk>;
 				assigned-clock-rates = <24000000>;    /* Hz*/
-
 				rotation = <0>;
 				orientation = <0>;
 				sony,sync-mode = "internal-leader";
@@ -88,7 +87,6 @@
 		csi: __overlay__ {
 			status = "okay";
 			brcm,media-controller;
-
 			port {
 				csi_ep: endpoint {
 					remote-endpoint = <&cam_endpoint>;
@@ -122,8 +120,6 @@
 	__overrides__ {
 		2lane = <0>, "-0+1-2+3";
 		always-on = <0>, "+99";
-		rotation    = <&cam_node>,"rotation:0";
-		orientation = <&cam_node>,"orientation:0";
 		sync-mode   = <&cam_node>, "sony,sync-mode=%s";
 		media-controller = <&csi>,"brcm,media-controller?";
 		cam0 = <&i2c_frag>, "target:0=",<&i2c_csi_dsi0>,
