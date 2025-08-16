@@ -859,7 +859,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 
 		do_div(pixel_rate, mode->min_hmax);
 		hmax = (u64)(mode->width + ctrl->val) * IMX585_PIXEL_RATE;
-		do_div(hmax, pixel_rate);
+		div64_u64(hmax, pixel_rate);
 		imx585->hmax = (u32)hmax;
 
 		dev_dbg(imx585->clientdev, "HBLANK=%u -> HMAX=%u\n", ctrl->val, imx585->hmax);
@@ -1036,8 +1036,6 @@ static int imx585_init_controls(struct imx585 *imx585)
 	int ret;
 
 	ret = v4l2_ctrl_handler_init(hdl, 32);
-	if (ret)
-		return ret;
 
 	/* Read-only, updated per mode */
 	imx585->pixel_rate = v4l2_ctrl_new_std(hdl, &imx585_ctrl_ops,
@@ -1360,7 +1358,6 @@ static int imx585_enable_streams(struct v4l2_subdev *sd,
 	return 0;
 
 err_rpm_put:
-	pm_runtime_mark_last_busy(imx585->clientdev);
 	pm_runtime_put_autosuspend(imx585->clientdev);
 	return ret;
 }
@@ -1380,7 +1377,6 @@ static int imx585_disable_streams(struct v4l2_subdev *sd,
 	__v4l2_ctrl_grab(imx585->hflip, false);
 	__v4l2_ctrl_grab(imx585->hdr_mode, false);
 
-	pm_runtime_mark_last_busy(imx585->clientdev);
 	pm_runtime_put_autosuspend(imx585->clientdev);
 
 	return ret;
