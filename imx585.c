@@ -652,7 +652,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 
 		do_div(pixel_rate, mode->min_hmax);
 		hmax = (u64)(mode->width + ctrl->val) * IMX585_PIXEL_RATE;
-		do_div(hmax, pixel_rate);
+		div64_u64(hmax, pixel_rate);
 		imx585->hmax = (u32)hmax;
 
 		dev_dbg(imx585->clientdev, "HBLANK=%u -> HMAX=%u\n", ctrl->val, imx585->hmax);
