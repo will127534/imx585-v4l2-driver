@@ -1,5 +1,7 @@
 #!/bin/sh
 
 dtc -Wno-interrupts_property -Wno-unit_address_vs_reg -@ -I dts -O dtb -o imx585.dtbo imx585-overlay.dts
+dtc -Wno-interrupts_property -Wno-unit_address_vs_reg -@ -I dts -O dtb -o imx585-mono.dtbo imx585-mono-overlay.dts
 
 install -m 751 imx585.dtbo /boot/overlays/
+install -m 751 imx585-mono.dtbo /boot/overlays/

@@ -55,7 +55,7 @@
 			status = "okay";
 
 			cam_node: imx585@1a {
-				compatible = "sony,imx585";
+				compatible = "sony,imx585-mono";
 				reg = <0x1a>;
 				clocks = <&cam1_clk>;
 
