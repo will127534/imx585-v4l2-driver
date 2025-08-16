@@ -701,7 +701,7 @@ static int imx585_init_controls(struct imx585 *imx585)
 	struct v4l2_fwnode_device_properties props;
 	int ret;
 
-	ret = v4l2_ctrl_handler_init(hdl, 32);
+	ret = v4l2_ctrl_handler_init(hdl, 16);
 	if (ret)
 		return ret;
 
