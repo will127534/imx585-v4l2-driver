@@ -114,6 +114,7 @@
 #define IMX585_REG_BLKLEVEL             CCI_REG16_LE(0x30dc)
 #define IMX585_BLKLEVEL_DEFAULT         50
 
+
 /* Digital Clamp */
 #define IMX585_REG_DIGITAL_CLAMP        CCI_REG8(0x3458)
 
