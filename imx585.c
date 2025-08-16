@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * A V4L2 driver for Sony IMX585 cameras.
+ * A V4L2 driver for Sony IMX585 camera.
  *
- * Maintained by: Will Whang <will@willwhang.com>
  */
 
 #include <linux/clk.h>
@@ -688,7 +687,7 @@ static void imx585_update_hmax(struct imx585 *imx585)
 	const u32 hdr_scale  = imx585->clear_hdr ? 2 : 1;
 	unsigned int i;
 
-	dev_info(imx585->clientdev, "Update minimum HMAX: base=%u lane_scale=%u hdr_scale=%u\n",
+	dev_dbg(imx585->clientdev, "Update minimum HMAX: base=%u lane_scale=%u hdr_scale=%u\n",
 		 base_4lane, lane_scale, hdr_scale);
 
 	for (i = 0; i < ARRAY_SIZE(supported_modes); ++i) {
@@ -698,7 +697,7 @@ static void imx585_update_hmax(struct imx585 *imx585)
 		supported_modes[i].min_hmax = h;
 		supported_modes[i].min_vmax = v;
 
-		dev_info(imx585->clientdev, " mode %ux%u -> VMAX=%u HMAX=%u\n",
+		dev_dbg(imx585->clientdev, " mode %ux%u -> VMAX=%u HMAX=%u\n",
 			 supported_modes[i].width, supported_modes[i].height, v, h);
 	}
 }
@@ -737,7 +736,7 @@ static void imx585_set_framing_limits(struct imx585 *imx585,
 				 imx585->vmax - IMX585_SHR_MIN_HDR, 1,
 				 IMX585_EXPOSURE_DEFAULT);
 
-	dev_info(imx585->clientdev, "Framing: VMAX=%u HMAX=%u pixel_rate=%llu\n",
+	dev_dbg(imx585->clientdev, "Framing: VMAX=%u HMAX=%u pixel_rate=%llu\n",
 		 imx585->vmax, imx585->hmax, pixel_rate);
 }
 
@@ -781,7 +780,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 			imx585->hcg = imx585->clear_hdr ? 0 : imx585->hcg;
 			__v4l2_ctrl_s_ctrl(imx585->hcg_ctrl, imx585->hcg);
 			imx585_update_gain_limits(imx585);
-			dev_info(imx585->clientdev, "HDR=%u, HCG=%u\n", ctrl->val, imx585->hcg);
+			dev_dbg(imx585->clientdev, "HDR=%u, HCG=%u\n", ctrl->val, imx585->hcg);
 
 			code = imx585->mono ? MEDIA_BUS_FMT_Y12_1X12
 					    : MEDIA_BUS_FMT_SRGGB12_1X12;
@@ -795,7 +794,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		if (!imx585->clear_hdr) {
 			imx585->hcg = ctrl->val;
 			imx585_update_gain_limits(imx585);
-			dev_info(imx585->clientdev, "HCG=%u\n", ctrl->val);
+			dev_dbg(imx585->clientdev, "HCG=%u\n", ctrl->val);
 		}
 		break;
 	default:
@@ -824,7 +823,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 			if (ret)
 				dev_err_ratelimited(imx585->clientdev,
 						    "FDG_SEL0 write failed (%d)\n", ret);
-			dev_info(imx585->clientdev, "HCG write reg=%u\n", ctrl->val);
+			dev_dbg(imx585->clientdev, "HCG write reg=%u\n", ctrl->val);
 		}
 		break;
 	case V4L2_CID_ANALOGUE_GAIN:
@@ -847,7 +846,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 					 IMX585_EXPOSURE_MIN, imx585->vmax - min_shr, 1,
 					 current_exposure);
 
-		dev_info(imx585->clientdev, "VBLANK=%u -> VMAX=%u\n", ctrl->val, imx585->vmax);
+		dev_dbg(imx585->clientdev, "VBLANK=%u -> VMAX=%u\n", ctrl->val, imx585->vmax);
 
 		ret = cci_write(imx585->regmap, IMX585_REG_VMAX, imx585->vmax, NULL);
 		if (ret)
@@ -863,7 +862,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		do_div(hmax, pixel_rate);
 		imx585->hmax = (u32)hmax;
 
-		dev_info(imx585->clientdev, "HBLANK=%u -> HMAX=%u\n", ctrl->val, imx585->hmax);
+		dev_dbg(imx585->clientdev, "HBLANK=%u -> HMAX=%u\n", ctrl->val, imx585->hmax);
 
 		ret = cci_write(imx585->regmap, IMX585_REG_HMAX, imx585->hmax, NULL);
 		if (ret)
@@ -935,7 +934,7 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 					    "HDR gain write failed (%d)\n", ret);
 		break;
 	default:
-		dev_info(imx585->clientdev, "Unhandled ctrl %s: id=0x%x, val=0x%x\n",
+		dev_dbg(imx585->clientdev, "Unhandled ctrl %s: id=0x%x, val=0x%x\n",
 			 ctrl->name, ctrl->id, ctrl->val);
 		break;
 	}
@@ -1270,17 +1269,17 @@ static int imx585_enable_streams(struct v4l2_subdev *sd,
 
 	/* Sync configuration */
 	if (imx585->sync_mode == SYNC_INT_FOLLOWER) {
-		dev_info(imx585->clientdev, "Internal sync follower: XVS input\n");
+		dev_dbg(imx585->clientdev, "Internal sync follower: XVS input\n");
 		cci_write(imx585->regmap, IMX585_REG_EXTMODE, 0x01, NULL);
 		cci_write(imx585->regmap, IMX585_REG_XXS_DRV, 0x03, NULL); /* XHS out, XVS in */
 		cci_write(imx585->regmap, IMX585_REG_XXS_OUTSEL, 0x08, NULL); /* disable XVS OUT */
 	} else if (imx585->sync_mode == SYNC_INT_LEADER) {
-		dev_info(imx585->clientdev, "Internal sync leader: XVS/XHS output\n");
+		dev_dbg(imx585->clientdev, "Internal sync leader: XVS/XHS output\n");
 		cci_write(imx585->regmap, IMX585_REG_EXTMODE, 0x00, NULL);
 		cci_write(imx585->regmap, IMX585_REG_XXS_DRV, 0x00, NULL); /* XHS/XVS out */
 		cci_write(imx585->regmap, IMX585_REG_XXS_OUTSEL, 0x0A, NULL);
 	} else {
-		dev_info(imx585->clientdev, "Follower: XVS/XHS input\n");
+		dev_dbg(imx585->clientdev, "Follower: XVS/XHS input\n");
 		cci_write(imx585->regmap, IMX585_REG_XXS_DRV, 0x0F, NULL); /* inputs */
 		cci_write(imx585->regmap, IMX585_REG_XXS_OUTSEL, 0x00, NULL);
 	}
@@ -1349,7 +1348,7 @@ static int imx585_enable_streams(struct v4l2_subdev *sd,
 	if (ret)
 		goto err_rpm_put;
 
-	dev_info(imx585->clientdev, "Streaming started\n");
+	dev_dbg(imx585->clientdev, "Streaming started\n");
 	usleep_range(IMX585_STREAM_DELAY_US,
 		     IMX585_STREAM_DELAY_US + IMX585_STREAM_DELAY_RANGE_US);
 
@@ -1550,7 +1549,7 @@ static int imx585_check_hwcfg(struct device *dev, struct imx585 *imx585)
 		goto out_free;
 	}
 	imx585->lane_count = ep.bus.mipi_csi2.num_data_lanes;
-	dev_info(dev, "Data lanes: %u\n", imx585->lane_count);
+	dev_dbg(dev, "Data lanes: %u\n", imx585->lane_count);
 
 	if (!ep.nr_of_link_frequencies) {
 		dev_err(dev, "link-frequency property missing\n");
@@ -1569,7 +1568,7 @@ static int imx585_check_hwcfg(struct device *dev, struct imx585 *imx585)
 		goto out_free;
 	}
 
-	dev_info(dev, "Link speed: %llu Hz\n",
+	dev_dbg(dev, "Link speed: %llu Hz\n",
 		 (unsigned long long)ep.link_frequencies[0]);
 
 	ret = 0;
@@ -1604,7 +1603,7 @@ static int imx585_check_module_exists(struct imx585 *imx585)
 		return ret;
 	}
 
-	dev_info(imx585->clientdev, "Sensor detected\n");
+	dev_dbg(imx585->clientdev, "Sensor detected\n");
 	return 0;
 }
 
@@ -1623,7 +1622,7 @@ static int imx585_probe(struct i2c_client *client)
 	imx585->clientdev = dev;
 
 	imx585->mono = of_device_is_compatible(dev->of_node, "sony,imx585-mono");
-	dev_info(dev, "mono=%d\n", imx585->mono);
+	dev_dbg(dev, "mono=%d\n", imx585->mono);
 
 	imx585->sync_mode = SYNC_INT_LEADER;
 	if (!device_property_read_string(dev, "sony,sync-mode", &sync_mode)) {
@@ -1632,7 +1631,7 @@ static int imx585_probe(struct i2c_client *client)
 		else if (!strcmp(sync_mode, "external"))
 			imx585->sync_mode = SYNC_EXTERNAL;
 	}
-	dev_info(dev, "sync-mode: %s\n", sync_mode_menu[imx585->sync_mode]);
+	dev_dbg(dev, "sync-mode: %s\n", sync_mode_menu[imx585->sync_mode]);
 
 	ret = imx585_check_hwcfg(dev, imx585);
 	if (ret)
@@ -1656,7 +1655,7 @@ static int imx585_probe(struct i2c_client *client)
 	if (i == ARRAY_SIZE(imx585_inck_table))
 		return dev_err_probe(dev, -EINVAL, "unsupported XCLK %u Hz\n", imx585->xclk_freq);
 
-	dev_info(dev, "XCLK %u Hz -> INCK_SEL 0x%02x\n",
+	dev_dbg(dev, "XCLK %u Hz -> INCK_SEL 0x%02x\n",
 		 imx585->xclk_freq, imx585->inck_sel_val);
 
 	ret = imx585_get_regulators(imx585);
