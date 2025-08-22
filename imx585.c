@@ -855,15 +855,19 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	}
 	case V4L2_CID_HBLANK: {
-		u64 pixel_rate = (u64)mode->width * IMX585_PIXEL_RATE;
-		u64 hmax;
+		u32 width   = mode->width;
+		u32 hblank  = (u32)ctrl->val;
+		u64 num;
+		u32 hmax_new;
 
-		do_div(pixel_rate, mode->min_hmax);
-		hmax = (u64)(mode->width + ctrl->val) * IMX585_PIXEL_RATE;
-		div64_u64(hmax, pixel_rate);
-		imx585->hmax = (u32)hmax;
+		num = (u64)mode->min_hmax * (width + hblank);
+		hmax_new = div_u64(num, width);
 
-		dev_info(imx585->clientdev, "HBLANK=%u -> HMAX=%u\n", ctrl->val, imx585->hmax);
+		imx585->hmax = hmax_new;
+
+		dev_info(imx585->clientdev,
+			 "HBLANK=%u -> HMAX=%u (min_hmax=%u, width=%u)\n",
+			 hblank, imx585->hmax, mode->min_hmax, width);
 
 		ret = cci_write(imx585->regmap, IMX585_REG_HMAX, imx585->hmax, NULL);
 		if (ret)
