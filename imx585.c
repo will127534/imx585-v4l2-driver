@@ -1622,8 +1622,10 @@ static int imx585_probe(struct i2c_client *client)
 	v4l2_i2c_subdev_init(&imx585->sd, client, &imx585_subdev_ops);
 	imx585->clientdev = dev;
 
-	imx585->mono = of_device_is_compatible(dev->of_node, "sony,imx585-mono");
-	dev_info(dev, "mono=%d\n", imx585->mono);
+	dev_info(dev, "Reading dtoverlay config:\n");
+	imx585->mono = of_property_read_bool(dev->of_node, "mono-mode");
+	if (imx585->mono)
+		dev_info(dev, "Mono Mode Selected, make sure you have the correct sensor variant\n");
 
 	imx585->sync_mode = SYNC_INT_LEADER;
 	if (!device_property_read_string(dev, "sony,sync-mode", &sync_mode)) {
@@ -1746,7 +1748,6 @@ static DEFINE_RUNTIME_DEV_PM_OPS(imx585_pm_ops, imx585_power_off,
 
 static const struct of_device_id imx585_of_match[] = {
 	{ .compatible = "sony,imx585" },
-	{ .compatible = "sony,imx585-mono" }, /* monochrome variant */
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, imx585_of_match);

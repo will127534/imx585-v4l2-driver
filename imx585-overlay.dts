@@ -133,5 +133,6 @@
 		       <&reg_alwayson_frag>, "target:0=",<&cam0_reg>,
 		       <&cam_node>, "vana-supply:0=",<&cam0_reg>;
 		link-frequency = <&cam_endpoint>,"link-frequencies#0";
+		mono = <&cam_node>,"mono-mode:0=1";
 	};
 };
