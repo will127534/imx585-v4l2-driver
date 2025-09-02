@@ -124,7 +124,7 @@
 		always-on = <0>, "+99";
 		rotation    = <&cam_node>,"rotation:0";
 		orientation = <&cam_node>,"orientation:0";
-		sync-mode   = <&cam_node>, "sony,sync-mode=%s";
+		sync-mode = <&cam_node>,"sony,sync-mode";
 		media-controller = <&csi>,"brcm,media-controller?";
 		cam0 = <&i2c_frag>, "target:0=",<&i2c_csi_dsi0>,
 		       <&csi_frag>, "target:0=",<&csi0>,

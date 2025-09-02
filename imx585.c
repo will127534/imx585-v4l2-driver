@@ -177,7 +177,7 @@ static const u64 link_freqs[] = {
 	[IMX585_LINK_FREQ_1188MHZ] = 1188000000ULL,
 };
 
-/* min HMAX for 4-lane 4K full res mode, x2 for 2-lane, /2 for FHD */
+/* min HMAX for 4-lane 4K full res mode, x2 for 2-lane */
 static const u16 HMAX_table_4lane_4K[] = {
 	[IMX585_LINK_FREQ_297MHZ]  = 1584,
 	[IMX585_LINK_FREQ_360MHZ]  = 1320,
