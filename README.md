@@ -99,7 +99,6 @@ camera_auto_detect=0
 dtoverlay=imx585,2lane
 ```
 
-
 ### link-frequency
 
 If you want to change the default link frequency of 1440Mbps/lane (720Mhz), you can chage it like the following:
@@ -121,6 +120,18 @@ Here is a list of available frequencies:
 Notes that by default RPI5/RP1 has a limit of 400Mpix/s processing speed, without overclocking RP1 (hence the Camera Frontend) you will be limited to ~43.8 FPS @ 4K.  
 For ClearHDR mode the framerate will be half, for 1080P 2x2 binned the framerate will be double.  
 1188 Mhz (2376 Mbps/lane) is also in the driver but RPI4 doesn't supports it from testing and RPI5 experience framedrop.  
+
+### Sync-Mode
+
+The driver exposes three sync modes, selectable via dtoverlay parameters:
+| Mode                  | Description |
+|-----------------------|-------------|
+| **internal-leader** (default) | Sensor runs from its own internal clock and outputs both `XVS` (vertical sync) and `XHS` (horizontal sync). Other cameras can lock onto these signals. |
+| **internal-follower** | Sensor still uses its own clock, but takes in an external `XVS` signal. It aligns vertical sync to this input by adding or subtracting a horizontal sync pulse. |
+| **external**          | Sensor clock and timing are fully driven by external `XVS` and `XHS` signals. Both syncs are inputs, no outputs are generated. |
+
+See [here](https://github.com/will127534/StarlightEye/wiki/IMX585-Camera-Clock-Synchronization-Guide) for the full guide.
+
 
 ### mix usage
 
