@@ -14,7 +14,7 @@ Special thanks to Sasha Shturma's Raspberry Pi CM4 Сarrier with Hi-Res MIPI Dis
 
 Before you begin the installation process, please ensure the following prerequisites are met:
 
-- **Kernel version**: You should be running on a Linux kernel version 6.1 or newer. You can verify your kernel version by executing `uname -r` in your terminal.
+- **Kernel version**: You should be running on a Linux kernel version 6.12 or newer. You can verify your kernel version by executing `uname -r` in your terminal.
 
 - **Development tools**: Essential tools such as `gcc`, `dkms`, and `linux-headers` are required for compiling a kernel module. If not already installed, these can be installed using the package manager with the following command:
   
