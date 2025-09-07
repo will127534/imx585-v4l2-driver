@@ -4,11 +4,8 @@ This guide provides detailed instructions on how to install the IMX585 kernel dr
 
 ## Special Thanks
 
-Special thanks to Octopuscinema and Soho-enterprise, the driver is based on their imx585 driver here:
-https://github.com/octopuscinema/linux-camera-support/blob/rpi-6.1.y/drivers/media/i2c/imx585.c
-
+Special thanks to Soho-enterprise for the additional register info.  
 Special thanks to Sasha Shturma's Raspberry Pi CM4 Сarrier with Hi-Res MIPI Display project, the DKMS install script is adapted from the github project page: https://github.com/renetec-io/cm4-panel-jdi-lt070me05000
-
 
 ## Prerequisites
 
@@ -91,7 +88,7 @@ dtoverlay=imx585,always-on
 If you are using a monochrome varient, append the dtoverlay with `,mono` like this:  
 ```
 camera_auto_detect=0
-dtoverlay=imx585,mono
+dtoverlay=imx585-mono
 ```
 
 ### Lane Count
@@ -101,7 +98,6 @@ If you want to use 2-lane for IMX585, append the dtoverlay with `,2lane` like th
 camera_auto_detect=0
 dtoverlay=imx585,2lane
 ```
-
 
 ### link-frequency
 
@@ -125,12 +121,24 @@ Notes that by default RPI5/RP1 has a limit of 400Mpix/s processing speed, withou
 For ClearHDR mode the framerate will be half, for 1080P 2x2 binned the framerate will be double.  
 1188 Mhz (2376 Mbps/lane) is also in the driver but RPI4 doesn't supports it from testing and RPI5 experience framedrop.  
 
+### Sync-Mode
+
+The driver exposes three sync modes, selectable via dtoverlay parameters:
+| Mode                  | Description |
+|-----------------------|-------------|
+| **internal-leader** (default) | Sensor runs from its own internal clock and outputs both `XVS` (vertical sync) and `XHS` (horizontal sync). Other cameras can lock onto these signals. |
+| **internal-follower** | Sensor still uses its own clock, but takes in an external `XVS` signal. It aligns vertical sync to this input by adding or subtracting a horizontal sync pulse. |
+| **external**          | Sensor clock and timing are fully driven by external `XVS` and `XHS` signals. Both syncs are inputs, no outputs are generated. |
+
+See [here](https://github.com/will127534/StarlightEye/wiki/IMX585-Camera-Clock-Synchronization-Guide) for the full guide.
+
+
 ### mix usage
 
 Last note is that all the options can be used at the same time, the dtoverlay will looks like this:
 ```
 camera_auto_detect=0
-dtoverlay=imx585,always-on,mono,cam0,link-frequency=297000000
+dtoverlay=imx585-mono,always-on,cam0,link-frequency=297000000
 ```
 Imaging how many config I need to test.
 

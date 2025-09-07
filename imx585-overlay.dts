@@ -33,7 +33,21 @@
 		};
 	};
 
-	i2c_frag: fragment@10 {
+	reg_frag: fragment@4 {
+		target = <&cam1_reg>;
+		cam_reg: __overlay__ {
+			startup-delay-us = <300000>;
+		};
+	};
+
+	reg_alwayson_frag: fragment@99 {
+		target = <&cam1_reg>;
+		__dormant__ {
+			regulator-always-on;
+		};
+	};
+
+	i2c_frag: fragment@100 {
 		target = <&i2c_csi_dsi>;
 		__overlay__ {
 			#address-cells = <1>;
@@ -44,15 +58,17 @@
 				compatible = "sony,imx585";
 				reg = <0x1a>;
 				clocks = <&cam1_clk>;
-				clock-names = "xclk";
-				clock-frequency = <24000000>;
-				
+
+				assigned-clocks      = <&cam1_clk>;
+				assigned-clock-rates = <24000000>;    /* Hz*/
+
 				rotation = <0>;
 				orientation = <0>;
+				sony,sync-mode = "internal-leader";
 
-				VANA-supply = <&cam1_reg>;	/* 3.3v */
-				VDIG-supply = <&cam_dummy_reg>;	/* 1.1v */
-				VDDL-supply = <&cam_dummy_reg>;	/* 1.8v */
+				vana-supply = <&cam1_reg>;	/* 3.3v */
+				vdig-supply = <&cam_dummy_reg>;	/* 1.1v */
+				vddl-supply = <&cam_dummy_reg>;	/* 1.8v */
 
 				port {
 					cam_endpoint: endpoint {
@@ -67,7 +83,7 @@
 		};
 	};
 
-	csi_frag: fragment@11 {
+	csi_frag: fragment@101 {
 		target = <&csi1>;
 		csi: __overlay__ {
 			status = "okay";
@@ -81,23 +97,22 @@
 		};
 	};
 
-	fragment@12 {
+	fragment@102 {
 		target = <&i2c0if>;
 		__overlay__ {
 			status = "okay";
 		};
 	};
 
-	clk_frag: fragment@13 {
+	clk_frag: fragment@103 {
 		target = <&cam1_clk>;
 		cam_clk: __overlay__ {
 			status = "okay";
 			clock-frequency = <24000000>;
-			//clock-frequency = <37125000>;
 		};
 	};
 
-	fragment@14 {
+	fragment@104 {
 		target = <&i2c0mux>;
 		__overlay__ {
 			status = "okay";
@@ -106,15 +121,18 @@
 
 	__overrides__ {
 		2lane = <0>, "-0+1-2+3";
-		rotation = <&cam_node>,"rotation:0";
+		always-on = <0>, "+99";
+		rotation    = <&cam_node>,"rotation:0";
 		orientation = <&cam_node>,"orientation:0";
+		sync-mode = <&cam_node>,"sony,sync-mode";
 		media-controller = <&csi>,"brcm,media-controller?";
 		cam0 = <&i2c_frag>, "target:0=",<&i2c_csi_dsi0>,
 		       <&csi_frag>, "target:0=",<&csi0>,
 		       <&clk_frag>, "target:0=",<&cam0_clk>,
 		       <&cam_node>, "clocks:0=",<&cam0_clk>,
-		       <&cam_node>, "VANA-supply:0=",<&cam0_reg>;
-		mono = <&cam_node>,"mono-mode:0=1";
+		       <&reg_alwayson_frag>, "target:0=",<&cam0_reg>,
+		       <&cam_node>, "vana-supply:0=",<&cam0_reg>;
 		link-frequency = <&cam_endpoint>,"link-frequencies#0";
+		mono = <&cam_node>,"mono-mode:0=1";
 	};
 };
