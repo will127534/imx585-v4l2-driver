@@ -4,7 +4,7 @@ This guide provides detailed instructions on how to install the IMX585 kernel dr
 
 ## Special Thanks
 
-Special thanks to Octopuscinema and Soho-enterprise.
+Special thanks to Soho-enterprise for the additional register info.
 Special thanks to Sasha Shturma's Raspberry Pi CM4 Сarrier with Hi-Res MIPI Display project, the DKMS install script is adapted from the github project page: https://github.com/renetec-io/cm4-panel-jdi-lt070me05000
 
 ## Prerequisites
