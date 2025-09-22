@@ -85,7 +85,7 @@ dtoverlay=imx585,always-on
 
 ### mono
 
-If you are using a monochrome varient, append the dtoverlay with `,mono` like this:  
+If you are using a monochrome varient, append the dtoverlay with `-mono` like this:  
 ```
 camera_auto_detect=0
 dtoverlay=imx585-mono
