@@ -88,7 +88,7 @@ dtoverlay=imx585,always-on
 If you are using a monochrome varient, append the dtoverlay with `,mono` like this:  
 ```
 camera_auto_detect=0
-dtoverlay=imx585-mono
+dtoverlay=imx585,mono
 ```
 
 ### Lane Count
@@ -138,7 +138,7 @@ See [here](https://github.com/will127534/StarlightEye/wiki/IMX585-Camera-Clock-S
 Last note is that all the options can be used at the same time, the dtoverlay will looks like this:
 ```
 camera_auto_detect=0
-dtoverlay=imx585-mono,always-on,cam0,link-frequency=297000000
+dtoverlay=imx585,mono,always-on,cam0,link-frequency=297000000
 ```
 Imaging how many config I need to test.
 
