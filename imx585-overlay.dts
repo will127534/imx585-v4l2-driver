@@ -130,6 +130,7 @@
 		       <&csi_frag>, "target:0=",<&csi0>,
 		       <&clk_frag>, "target:0=",<&cam0_clk>,
 		       <&cam_node>, "clocks:0=",<&cam0_clk>,
+		       <&cam_node>, "assigned-clocks:0=",<&cam0_clk>,
 		       <&reg_alwayson_frag>, "target:0=",<&cam0_reg>,
 		       <&cam_node>, "vana-supply:0=",<&cam0_reg>;
 		link-frequency = <&cam_endpoint>,"link-frequencies#0";
