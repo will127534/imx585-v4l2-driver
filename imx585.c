@@ -135,6 +135,39 @@
 #define IMX585_FLIP_WINMODEH            CCI_REG8(0x3020)
 #define IMX585_FLIP_WINMODEV            CCI_REG8(0x3021)
 
+/* Test pattern generator */
+#define IMX585_REG_TPG_EN_DUOUT		CCI_REG8(0x30E0)
+#define IMX585_REG_TPG_TESTCLKEN		CCI_REG8(0x5300)
+#define   IMX585_TPG_TESTCLKEN		BIT(3)
+
+#define IMX585_REG_TPG_PATSEL		CCI_REG8(0x30E2)
+#define   IMX585_TPG_PAT_ALL_000	0x00
+#define   IMX585_TPG_PAT_ALL_FFF	0x01
+#define   IMX585_TPG_PAT_ALL_555	0x02
+#define   IMX585_TPG_PAT_ALL_AAA	0x03
+#define   IMX585_TPG_PAT_H_COLOR_BARS	0x0a
+#define   IMX585_TPG_PAT_V_COLOR_BARS	0x0b
+
+static const char * const imx585_tpg_menu[] = {
+	"Disabled",
+	"All 000h",
+	"All FFFh",
+	"All 555h",
+	"All AAAh",
+	"Horizontal color bars",
+	"Vertical color bars",
+};
+
+static const int imx585_tpg_val[] = {
+	IMX585_TPG_PAT_ALL_000,
+	IMX585_TPG_PAT_ALL_000,
+	IMX585_TPG_PAT_ALL_FFF,
+	IMX585_TPG_PAT_ALL_555,
+	IMX585_TPG_PAT_ALL_AAA,
+	IMX585_TPG_PAT_H_COLOR_BARS,
+	IMX585_TPG_PAT_V_COLOR_BARS,
+};
+
 /* Pixel rate helper (sensor line clock proxy used below) */
 #define IMX585_PIXEL_RATE               74250000U
 
@@ -607,6 +640,29 @@ static inline struct imx585 *to_imx585(struct v4l2_subdev *sd)
 	return container_of(sd, struct imx585, sd);
 }
 
+static int imx585_update_test_pattern(struct imx585 *imx585, u32 pattern_index)
+{
+	int ret;
+
+	if (pattern_index >= ARRAY_SIZE(imx585_tpg_val))
+		return -EINVAL;
+
+	if (!pattern_index) {
+		ret = cci_write(imx585->regmap, IMX585_REG_TPG_EN_DUOUT, 0x00, NULL);
+		ret = cci_write(imx585->regmap, IMX585_REG_TPG_TESTCLKEN, 0x02, NULL);
+		return ret;
+	}
+
+	ret = cci_write(imx585->regmap, IMX585_REG_TPG_PATSEL,
+			imx585_tpg_val[pattern_index], NULL);
+	if (ret)
+		return ret;
+
+	ret = cci_write(imx585->regmap, IMX585_REG_TPG_EN_DUOUT, 0x01, NULL);
+	ret = cci_write(imx585->regmap, IMX585_REG_TPG_TESTCLKEN, 0x0A, NULL);
+	return ret;
+}
+
 static inline void get_mode_table(struct imx585 *imx585, unsigned int code,
 				  const struct imx585_mode **mode_list,
 				  unsigned int *num_modes)
@@ -970,6 +1026,9 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 			dev_err_ratelimited(imx585->clientdev,
 					    "HDR gain write failed (%d)\n", ret);
 		break;
+	case V4L2_CID_TEST_PATTERN:
+		ret = imx585_update_test_pattern(imx585, ctrl->val);
+		break;
 	default:
 		dev_dbg(imx585->clientdev, "Unhandled ctrl %s: id=0x%x, val=0x%x\n",
 			 ctrl->name, ctrl->id, ctrl->val);
@@ -1150,6 +1209,11 @@ static int imx585_init_controls(struct imx585 *imx585)
 	imx585->vmax_ctrl        = v4l2_ctrl_new_custom(hdl, &imx585_cfg_vmax, NULL);
 	imx585->hmax_ctrl        = v4l2_ctrl_new_custom(hdl, &imx585_cfg_hmax, NULL);
 	imx585->shr_ctrl        = v4l2_ctrl_new_custom(hdl, &imx585_cfg_shr, NULL);
+
+	v4l2_ctrl_new_std_menu_items(hdl, &imx585_ctrl_ops,
+				     V4L2_CID_TEST_PATTERN,
+				     ARRAY_SIZE(imx585_tpg_menu) - 1,
+				     0, 0, imx585_tpg_menu);
 
 	v4l2_ctrl_activate(imx585->datasel_th_ctrl,  imx585->clear_hdr);
 	v4l2_ctrl_activate(imx585->datasel_bk_ctrl,  imx585->clear_hdr);
