@@ -38,6 +38,9 @@
 #define V4L2_CID_IMX585_HDR_GRAD_COMP_H (V4L2_CID_USER_IMX585_BASE + 4)
 #define V4L2_CID_IMX585_HDR_GAIN        (V4L2_CID_USER_IMX585_BASE + 5)
 #define V4L2_CID_IMX585_HCG_GAIN        (V4L2_CID_USER_IMX585_BASE + 6)
+#define V4L2_CID_IMX585_VMAX            (V4L2_CID_USER_IMX585_BASE + 7)
+#define V4L2_CID_IMX585_HMAX            (V4L2_CID_USER_IMX585_BASE + 8)
+#define V4L2_CID_IMX585_SHR             (V4L2_CID_USER_IMX585_BASE + 9)
 
 /* --------------------------------------------------------------------------
  * Registers / limits
@@ -557,6 +560,11 @@ struct imx585 {
 	struct v4l2_ctrl *hblank;
 	struct v4l2_ctrl *blacklevel;
 
+	/* RAW Controls */
+	struct v4l2_ctrl *vmax_ctrl;
+	struct v4l2_ctrl *hmax_ctrl;
+	struct v4l2_ctrl *shr_ctrl;
+
 	/* HDR controls */
 	struct v4l2_ctrl *hdr_mode;
 	struct v4l2_ctrl *datasel_th_ctrl;
@@ -892,6 +900,30 @@ static int imx585_set_ctrl(struct v4l2_ctrl *ctrl)
 			dev_err_ratelimited(imx585->clientdev, "BLKLEVEL write failed (%d)\n", ret);
 		break;
 	}
+	case V4L2_CID_IMX585_SHR:
+		dev_info(imx585->clientdev, "SHR=%u\n", ctrl->val);
+		if (ctrl->val == 0)
+            break; 
+		ret = cci_write(imx585->regmap, IMX585_REG_SHR, ctrl->val, NULL);
+		if (ret)
+			dev_err_ratelimited(imx585->clientdev, "SHR write failed (%d)\n", ret);
+		break;
+	case V4L2_CID_IMX585_VMAX:
+		dev_info(imx585->clientdev, "VMAX=%u\n", ctrl->val);
+		if (ctrl->val == 0)
+            break; 
+		ret = cci_write(imx585->regmap, IMX585_REG_VMAX, ctrl->val, NULL);
+		if (ret)
+			dev_err_ratelimited(imx585->clientdev, "VMAX write failed (%d)\n", ret);
+		break;
+	case V4L2_CID_IMX585_HMAX:
+		dev_info(imx585->clientdev, "HMAX=%u\n", ctrl->val);
+		if (ctrl->val == 0)
+            break; 
+		ret = cci_write(imx585->regmap, IMX585_REG_HMAX, ctrl->val, NULL);
+		if (ret)
+			dev_err_ratelimited(imx585->clientdev, "HMAX write failed (%d)\n", ret);
+		break;
 	case V4L2_CID_WIDE_DYNAMIC_RANGE: /* Handled above */
 		break;
 	case V4L2_CID_IMX585_HDR_DATASEL_TH: {
@@ -1034,6 +1066,36 @@ static const struct v4l2_ctrl_config imx585_cfg_hcg = {
 	.def  = 0,
 };
 
+static const struct v4l2_ctrl_config imx585_cfg_hmax = {
+	.ops  = &imx585_ctrl_ops,
+	.id   = V4L2_CID_IMX585_HMAX,
+	.name = "HMAX",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.min  = 0,
+	.max  = IMX585_HMAX_MAX,
+	.step = 1,
+};
+
+static const struct v4l2_ctrl_config imx585_cfg_vmax = {
+	.ops  = &imx585_ctrl_ops,
+	.id   = V4L2_CID_IMX585_VMAX,
+	.name = "VMAX",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.min  = 0,
+	.max  = IMX585_VMAX_MAX,
+	.step = 1,
+};
+
+static const struct v4l2_ctrl_config imx585_cfg_shr = {
+	.ops  = &imx585_ctrl_ops,
+	.id   = V4L2_CID_IMX585_SHR,
+	.name = "SHR",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.min  = 0,
+	.max  = IMX585_SHR_MAX,
+	.step = 1,
+};
+
 static int imx585_init_controls(struct imx585 *imx585)
 {
 	struct v4l2_ctrl_handler *hdl = &imx585->ctrl_handler;
@@ -1084,6 +1146,10 @@ static int imx585_init_controls(struct imx585 *imx585)
 	imx585->gdc_exp_ctrl_h  = v4l2_ctrl_new_custom(hdl, &imx585_cfg_grad_exp_h, NULL);
 	imx585->hdr_gain_ctrl   = v4l2_ctrl_new_custom(hdl, &imx585_cfg_hdr_gain, NULL);
 	imx585->hcg_ctrl        = v4l2_ctrl_new_custom(hdl, &imx585_cfg_hcg, NULL);
+
+	imx585->vmax_ctrl        = v4l2_ctrl_new_custom(hdl, &imx585_cfg_vmax, NULL);
+	imx585->hmax_ctrl        = v4l2_ctrl_new_custom(hdl, &imx585_cfg_hmax, NULL);
+	imx585->shr_ctrl        = v4l2_ctrl_new_custom(hdl, &imx585_cfg_shr, NULL);
 
 	v4l2_ctrl_activate(imx585->datasel_th_ctrl,  imx585->clear_hdr);
 	v4l2_ctrl_activate(imx585->datasel_bk_ctrl,  imx585->clear_hdr);
@@ -1336,6 +1402,11 @@ static int imx585_enable_streams(struct v4l2_subdev *sd,
 
 	/* Disable digital clamp */
 	cci_write(imx585->regmap, IMX585_REG_DIGITAL_CLAMP, 0x00, NULL);
+
+	/* Reset manual HMAX/VMAX/SHR control value */
+	__v4l2_ctrl_s_ctrl(imx585->vmax_ctrl, 0);
+	__v4l2_ctrl_s_ctrl(imx585->hmax_ctrl, 0);
+	__v4l2_ctrl_s_ctrl(imx585->shr_ctrl, 0);
 
 	/* Apply user controls after writing the base tables */
 	ret = __v4l2_ctrl_handler_setup(imx585->sd.ctrl_handler);
